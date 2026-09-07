@@ -423,14 +423,38 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
                     return candidate
         return super().translate_path(path)
 
-    def end_headers(self):
-        super().end_headers()
+    def send_json_response(self, obj, status_code=200):
+        body = json.dumps(obj).encode('utf-8')
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+        try:
+            self.wfile.flush()
+        except Exception:
+            pass
+
+    def send_html_response(self, html_str, status_code=200):
+        body = html_str.encode('utf-8')
+        self.send_response(status_code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+        try:
+            self.wfile.flush()
+        except Exception:
+            pass
 
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_POST(self):
@@ -487,11 +511,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "parts": parts_list,
             "message": "मतदाता सूची (BEAWAR Ward 1 Part 1) सफलतापूर्वक विश्लेषित!"
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(resp_obj).encode('utf-8'))
+        self.send_json_response(resp_obj)
 
     def handle_preview(self, payload):
         candidate = payload.get("candidateName", "मनोज बाबेल")
@@ -527,11 +547,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
 </body>
 </html>
 """
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(html.encode('utf-8'))
+        self.send_html_response(html)
 
     def handle_generate_excel(self, payload):
         out_filename = f"voter_list_ward_{global_session['ward']}.xlsx"
@@ -552,11 +568,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "filename": out_filename,
             "downloadUrl": f"/downloads/{out_filename}"
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(resp_obj).encode('utf-8'))
+        self.send_json_response(resp_obj)
 
     def handle_generate_pdf(self, payload):
         candidate = payload.get("candidateName", "मनोज बाबेल")
@@ -591,11 +603,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "filename": out_filename,
             "downloadUrl": f"/downloads/{out_filename}"
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(resp_obj).encode('utf-8'))
+        self.send_json_response(resp_obj)
 
     def generate_custom_pdf(self, voters, candidate, party, appeal, slips_per_page, candidate_photo, party_symbol, out_pdf_path):
         temp_html = r"C:\Users\Indrajeet\.gemini\antigravity\brain\db5339aa-1fc6-4920-b97b-866fe8a58ed9\scratch\full_slips_render.html"
