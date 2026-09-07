@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>वोटर सुविधा (Voter Suvidha) — निर्वाचन नामावली एवं मतदाता पर्ची प्रणाली</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-logo">🗳️</div>
+        <div>
+          <h1 class="brand-title">वोटर सुविधा <span>(Voter Suvidha)</span></h1>
+          <p class="brand-subtitle">वार्ड-वार मतदाता सूची विश्लेषण, मास्टर एक्सेल एवं कस्टमाइजेबल मतदाता पर्ची जनरेटर</p>
+        </div>
+      </div>
+      <div class="header-badge">
+        <span class="status-dot"></span> सिस्टम सक्रिय (Ready)
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Step 1: Upload Box -->
+    <section class="card upload-section">
+      <div class="section-title-row">
+        <div class="step-circle">1</div>
+        <div>
+          <h2>वार्ड मतदाता सूची (PDF) अपलोड करें</h2>
+          <p class="step-desc">वार्ड के एक या एक से अधिक भाग (Parts) की आधिकारिक वोटर लिस्ट PDF यहाँ अपलोड करें</p>
+        </div>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">📁</div>
+        <p class="dropzone-text"><strong>वोटर लिस्ट PDF यहाँ ड्रैग और ड्रॉप करें</strong></p>
+        <p class="dropzone-sub">या कंप्यूटर से फाइल चुनने के लिए नीचे क्लिक करें</p>
+        <input type="file" id="pdfFileInput" accept=".pdf" multiple style="display:none;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('pdfFileInput').click()">
+          📂 PDF फाइलें चुनें (Select PDFs)
+        </button>
+      </div>
+
+      <!-- File Queue List -->
+      <div id="fileListContainer" class="file-list-container" style="display:none;">
+        <h3 class="subsection-title">चयनित फाइलें:</h3>
+        <ul id="fileList" class="file-list"></ul>
+        <div class="upload-action-row">
+          <button id="btnProcessPdfs" class="btn btn-primary btn-large">
+            ⚡ फाइलों का विश्लेषण करें (Extract Electors)
+          </button>
+          <button id="btnClearFiles" class="btn btn-outline">हटाएं (Clear)</button>
+        </div>
+      </div>
+
+      <!-- Progress / Status Bar -->
+      <div id="processingIndicator" class="processing-container" style="display:none;">
+        <div class="spinner"></div>
+        <div class="processing-text">
+          <strong id="processingTitle">मतदाता सूची का विश्लेषण किया जा रहा है...</strong>
+          <span id="processingDetail">कृती देव फॉन्ट डिकोडिंग और विलोपन सूची (Deleted Voters) की जांच जारी है...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Extracted Data Summary (Hidden until extracted) -->
+    <section id="summarySection" class="card summary-section" style="display:none;">
+      <div class="section-title-row">
+        <div class="step-circle success-circle">2</div>
+        <div>
+          <h2>मतदाता सांख्यिकी सारांश (Extraction Summary)</h2>
+          <p class="step-desc">विलोपित मतदाताओं को स्वतः हटाकर सक्रिय मतदाताओं का संकलन तैयार है</p>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card stat-active">
+          <div class="stat-val" id="statActiveVoters">0</div>
+          <div class="stat-label">सक्रिय मतदाता (Active)</div>
+          <div class="stat-sub">पर्ची व एक्सेल हेतु मान्य</div>
+        </div>
+        <div class="stat-card stat-deleted">
+          <div class="stat-val" id="statDeletedVoters">0</div>
+          <div class="stat-label">विलोपित मतदाता (Deleted)</div>
+          <div class="stat-sub">मृतक / स्थानांतरित (हटाए गए)</div>
+        </div>
+        <div class="stat-card stat-total">
+          <div class="stat-val" id="statTotalSerials">0</div>
+          <div class="stat-label">कुल क्रम संख्या (Serials)</div>
+          <div class="stat-sub">नामावली में कुल प्रविष्टियाँ</div>
+        </div>
+        <div class="stat-card stat-ward">
+          <div class="stat-val" id="statWardNum">20</div>
+          <div class="stat-label">वार्ड संख्या (Ward)</div>
+          <div class="stat-sub" id="statPartsCount">भाग 1 व 2</div>
+        </div>
+      </div>
+
+      <!-- Parts & Booth Detail Editor Table -->
+      <div class="booth-editor-container">
+        <h3 class="subsection-title">मतदाता सूची (PDF) से प्राप्त भाग एवं मतदान केंद्र का नाम व पता:</h3>
+        <table class="data-table" id="partsTable">
+          <thead>
+            <tr>
+              <th style="width: 10%;">भाग नं.</th>
+              <th style="width: 55%;">मतदान केंद्र का नाम व पता (Polling Station)</th>
+              <th style="width: 15%;">कुल मतदाता</th>
+              <th style="width: 20%;">सक्रिय मतदाता</th>
+            </tr>
+          </thead>
+          <tbody id="partsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 3: Customization Settings (Candidate, Message, Layout) -->
+    <section id="configSection" class="card config-section" style="display:none;">
+      <div class="section-title-row">
+        <div class="step-circle">3</div>
+        <div>
+          <h2>मतदाता पर्ची कस्टमाइजेशन (Slip Configuration)</h2>
+          <p class="step-desc">प्रत्याशी का नाम, पार्टी, अपील एवं प्रति A4 पृष्ठ पर्चियों की संख्या निर्धारित करें</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <!-- Candidate Name -->
+        <div class="form-group">
+          <label for="candidateNameInput">
+            <strong>प्रत्याशी का नाम (Candidate Name):</strong>
+          </label>
+          <input type="text" id="candidateNameInput" class="form-control" value="मनोज बाबेल" placeholder="उदा. मनोज बाबेल">
+          <small class="field-hint">पर्ची के दाईं ओर (Right Box) बोल्ड अक्षरों में प्रदर्शित होगा</small>
+        </div>
+
+        <!-- Party Name -->
+        <div class="form-group">
+          <label for="partyNameInput">
+            <strong>पार्टी / दल का नाम (Party Name):</strong>
+          </label>
+          <input type="text" id="partyNameInput" class="form-control" value="भारतीय जनता पार्टी (BJP)" placeholder="उदा. भारतीय जनता पार्टी (BJP)">
+          <small class="field-hint">प्रत्याशी नाम के साथ प्रदर्शित होगा</small>
+        </div>
+
+        <!-- Candidate Photo -->
+        <div class="form-group">
+          <label for="candidatePhotoInput">
+            <strong>प्रत्याशी की फोटो (Candidate Photo - Optional):</strong>
+          </label>
+          <div class="photo-upload-container">
+            <input type="file" id="candidatePhotoInput" accept="image/*" style="display:none;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('candidatePhotoInput').click()">
+              📷 फोटो अपलोड करें (Upload Photo)
+            </button>
+            <div id="photoPreviewBox" class="photo-preview-box" style="display:none;">
+              <img id="candidatePhotoPreview" src="" alt="Candidate Photo">
+              <button type="button" class="btn-remove-photo" id="btnRemovePhoto" title="फोटो हटाएं">&times;</button>
+            </div>
+          </div>
+          <small class="field-hint">प्रत्याशी के नाम के ऊपर (शीर्ष पर) प्रिंट होगी</small>
+        </div>
+
+        <!-- Party Symbol -->
+        <div class="form-group">
+          <label for="partySymbolInput">
+            <strong>पार्टी का चुनाव चिन्ह (Party Symbol - Optional):</strong>
+          </label>
+          <div class="photo-upload-container">
+            <input type="file" id="partySymbolInput" accept="image/*" style="display:none;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('partySymbolInput').click()">
+              🗳️ चुनाव चिन्ह अपलोड करें (Upload Symbol)
+            </button>
+            <div id="symbolPreviewBox" class="photo-preview-box" style="display:none;">
+              <img id="partySymbolPreview" src="" alt="Party Symbol">
+              <button type="button" class="btn-remove-photo" id="btnRemoveSymbol" title="चिन्ह हटाएं">&times;</button>
+            </div>
+          </div>
+          <small class="field-hint">प्रत्याशी के नाम के नीचे व पार्टी नाम के ऊपर प्रिंट होगा</small>
+        </div>
+
+        <!-- Message at bottom -->
+        <div class="form-group">
+          <label for="bottomMessageInput">
+            <strong>चुनाव अपील संदेश (Appeal Text):</strong>
+          </label>
+          <input type="text" id="bottomMessageInput" class="form-control" value="को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!" placeholder="उदा. को अपना अमूल्य वोट देकर विजयी बनाएं!">
+          <small class="field-hint">प्रत्याशी बॉक्स के नीचे प्रदर्शित होगा</small>
+        </div>
+
+        <!-- Slips per A4 Page Configuration -->
+        <div class="form-group full-width">
+          <label>
+            <strong>प्रति A4 पृष्ठ कितनी पर्चियां प्रिंट करना चाहते हैं? (Slips per A4 Page):</strong>
+          </label>
+          <div class="layout-selector">
+            <label class="layout-option">
+              <input type="radio" name="slipsPerPage" value="4">
+              <div class="option-box">
+                <span class="opt-num">4 स्लिप्स</span>
+                <span class="opt-grid">2 × 2 ग्रिड</span>
+                <span class="opt-desc">बड़ा आकार (सीनियर सिटीजन/स्पेशल)</span>
+              </div>
+            </label>
+
+            <label class="layout-option">
+              <input type="radio" name="slipsPerPage" value="6">
+              <div class="option-box">
+                <span class="opt-num">6 स्लिप्स</span>
+                <span class="opt-grid">2 × 3 ग्रिड</span>
+                <span class="opt-desc">मध्यम आकार (सुविधाजनक फॉन्ट)</span>
+              </div>
+            </label>
+
+            <label class="layout-option active">
+              <input type="radio" name="slipsPerPage" value="8" checked>
+              <div class="option-box featured">
+                <span class="badge-rec">अनुशंसित (Recommended)</span>
+                <span class="opt-num">8 स्लिप्स</span>
+                <span class="opt-grid">2 × 4 ग्रिड</span>
+                <span class="opt-desc">मानक साइज (सर्वोत्तम पेपर बचत)</span>
+              </div>
+            </label>
+
+            <label class="layout-option">
+              <input type="radio" name="slipsPerPage" value="10">
+              <div class="option-box">
+                <span class="opt-num">10 स्लिप्स</span>
+                <span class="opt-grid">2 × 5 ग्रिड</span>
+                <span class="opt-desc">कॉम्पैक्ट साइज</span>
+              </div>
+            </label>
+
+            <label class="layout-option">
+              <input type="radio" name="slipsPerPage" value="12">
+              <div class="option-box">
+                <span class="opt-num">12 स्लिप्स</span>
+                <span class="opt-grid">2 × 6 ग्रिड</span>
+                <span class="opt-desc">सघन साइज (अधिकतम पर्चियां)</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Actions & Generation -->
+    <section id="actionSection" class="card action-section" style="display:none;">
+      <div class="section-title-row">
+        <div class="step-circle">4</div>
+        <div>
+          <h2>फाइलें तैयार करें (Generate & Download)</h2>
+          <p class="step-desc">अपनी आवश्यकता अनुसार एक्सेल शीट या प्रिंट-रेडी वोटर स्लिप PDF तैयार करें</p>
+        </div>
+      </div>
+
+      <div class="action-buttons-grid">
+        <!-- Excel Button -->
+        <div class="action-card">
+          <div class="action-card-icon">📊</div>
+          <h3>मास्टर वोटर लिस्ट (Excel)</h3>
+          <p>सभी सक्रिय मतदाताओं की विस्तृत 11-कॉलम वाली स्प्रेडशीट। केवल एक्सेल फाइल बनेगी।</p>
+          <button id="btnGenerateExcel" class="btn btn-success btn-large">
+            📥 एक्सेल फाइल बनाएं (.xlsx)
+          </button>
+        </div>
+
+        <!-- Voter Slips PDF Button -->
+        <div class="action-card featured-action">
+          <div class="action-card-icon">📄</div>
+          <h3>वोटर सुविधा स्लिप (PDF)</h3>
+          <p>चयनित प्रति पृष्ठ स्लिप संख्या व प्रत्याशी समर्थन के साथ सीधे प्रिंट-रेडी A4 PDF।</p>
+          <div class="btn-group-dual">
+            <button id="btnPreviewSlips" class="btn btn-secondary">
+              👁️ लाइव नमूना देखें (Preview)
+            </button>
+            <button id="btnGeneratePdf" class="btn btn-primary btn-large">
+              🖨️ वोटर स्लिप PDF बनाएं (.pdf)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Generation Status Notification -->
+      <div id="genStatusBox" class="status-box" style="display:none;">
+        <div class="status-icon" id="genStatusIcon">⏳</div>
+        <div class="status-content">
+          <h4 id="genStatusTitle">फाइल तैयार की जा रही है...</h4>
+          <p id="genStatusMsg">कृपया प्रतीक्षा करें...</p>
+          <div id="genDownloadArea" style="margin-top: 10px; display:none;"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Preview Modal -->
+  <div id="previewModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📄 वोटर सुविधा स्लिप — नमूना पृष्ठ पूर्वावलोकन (Live 1 Page Preview)</h3>
+        <button class="modal-close" onclick="closePreviewModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="previewIframe" class="preview-iframe"></iframe>
+      </div>
+      <div class="modal-footer">
+        <span id="previewInfo"></span>
+        <button class="btn btn-secondary" onclick="closePreviewModal()">बंद करें (Close)</button>
+        <button class="btn btn-primary" onclick="generatePdfFromPreview()">सभी पेजों की PDF बनाएं (Generate Full PDF)</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p><strong>वोटर सुविधा (Voter Suvidha)</strong> &bull; निर्वाचन सहायता एवं चुनाव प्रचार प्रबंधन प्रणाली &bull; 100% स्थानीय एवं सुरक्षित</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
