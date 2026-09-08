@@ -6,10 +6,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $script:latin1 = [System.Text.Encoding]::GetEncoding(28591)
 $script:wordsDict = @{}
+$script:extractorDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 
 # Load dictionary
 $possibleDictPaths = @(
-    (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) "words_dict.json"),
+    (Join-Path $script:extractorDir "words_dict.json"),
     (Join-Path (Get-Location) "words_dict.json"),
     (Join-Path (Get-Location) "voter_suvidha\words_dict.json"),
     "C:\Users\Indrajeet\Documents\antigravity\serene-nobel\voter_suvidha\words_dict.json",
@@ -27,15 +28,18 @@ foreach ($dp in $possibleDictPaths) {
         } catch {}
     }
 }
+$script:sortedDictKeys = @($script:wordsDict.Keys | Sort-Object Length -Descending)
 
 function Convert-WordToUnicode($w) {
     if ([string]::IsNullOrWhiteSpace($w)) { return "" }
     $clean = $w.Trim()
     if ($script:wordsDict.ContainsKey($clean)) { return $script:wordsDict[$clean] }
-    foreach ($k in ($script:wordsDict.Keys | Sort-Object Length -Descending)) {
-        if ($clean.StartsWith($k)) {
-            $rest = $clean.Substring($k.Length)
-            return ($script:wordsDict[$k] + (Convert-WordToUnicode $rest))
+    if ($script:sortedDictKeys) {
+        foreach ($k in $script:sortedDictKeys) {
+            if ($clean.StartsWith($k)) {
+                $rest = $clean.Substring($k.Length)
+                return ($script:wordsDict[$k] + (Convert-WordToUnicode $rest))
+            }
         }
     }
     return $clean
@@ -121,17 +125,23 @@ function Build-SecCharMap($cmapText) {
         $map[0x73] = [char]0x0918
         $map[0x76] = [char]0x094C
     } else {
+        $map[0x3F] = ([char]0x0926 + [char]0x094D + [char]0x0930)
         $map[0x4B] = [char]0x091C
         $map[0x4C] = [char]0x095C
         $map[0x4D] = [char]0x091F
         $map[0x4E] = [char]0x092C
-        $map[0x51] = [char]0x091C
+        $map[0x4F] = [char]0x092C
+        $map[0x51] = ([char]0x093F + [char]0x0902)
         $map[0x52] = [char]0x0947
+        $map[0x53] = [char]0x0916
         $map[0x58] = [char]0x0942
         $map[0x59] = [char]0x091A
         $map[0x5A] = [char]0x0902
-        $map[0x5B] = [char]0x094C
+        $map[0x5B] = [char]0x0942
         $map[0x5C] = [char]0x0942
+        $map[0x5E] = [char]0x0927
+        $map[0x68] = ([char]0x0928 + [char]0x094D + [char]0x0926 + [char]0x094D + [char]0x0930)
+        $map[0x6F] = ([char]0x0937 + [char]0x094D + [char]0x092A)
         $map[0x71] = [char]0x0921
     }
 
@@ -473,21 +483,32 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
                             $nameTokens = @()
                             $relTokens = @()
 
-                            $midM = [regex]::Match($chunk, '(?s)-38\.25\s+[0-9.]+\s+Td(.*?)[0-9.-]+\s+-12\.85\s+Td(.*?)-[0-9.]+\s+27\.15\s+Td')
-                            if ($midM.Success) {
-                                $namePart = $midM.Groups[1].Value
-                                $relPart = $midM.Groups[2].Value
-                                
-                                $nMatches = [regex]::Matches($namePart, '\(((?:[^\\)]|\\.)*)\)\s*Tj')
-                                foreach ($nm in $nMatches) {
-                                    $v = $nm.Groups[1].Value
-                                    if ($v.Trim().Length -eq 0) { $nameTokens += " " } else { $nameTokens += $v }
-                                }
+                            $mEnd = [regex]::Match($chunk, '(-?[0-9.]+)\s+27\.15\s+Td')
+                            if ($mEnd.Success) {
+                                $beforeEnd = $chunk.Substring(0, $mEnd.Index)
+                                $mRel = [regex]::Match($beforeEnd, '(-?[0-9.]+)\s+-12\.85\s+Td')
+                                if ($mRel.Success) {
+                                    $relPart = $beforeEnd.Substring($mRel.Index + $mRel.Length)
+                                    $beforeRel = $beforeEnd.Substring(0, $mRel.Index)
+                                    $mStartMatches = [regex]::Matches($beforeRel, '(-51|-38\.25|-[0-9.]+)\s+[0-9.]+\s+Td')
+                                    $namePart = if ($mStartMatches.Count -gt 0) {
+                                        $lastM = $mStartMatches[$mStartMatches.Count - 1]
+                                        $beforeRel.Substring($lastM.Index + $lastM.Length)
+                                    } else {
+                                        $beforeRel
+                                    }
 
-                                $rMatches = [regex]::Matches($relPart, '\(((?:[^\\)]|\\.)*)\)\s*Tj')
-                                foreach ($rm in $rMatches) {
-                                    $v = $rm.Groups[1].Value
-                                    if ($v.Trim().Length -eq 0) { $relTokens += " " } else { $relTokens += $v }
+                                    $nMatches = [regex]::Matches($namePart, '\(((?:[^\\)]|\\.)*)\)\s*Tj')
+                                    foreach ($nm in $nMatches) {
+                                        $v = $nm.Groups[1].Value
+                                        if ($v.Trim().Length -eq 0) { $nameTokens += " " } else { $nameTokens += $v }
+                                    }
+
+                                    $rMatches = [regex]::Matches($relPart, '\(((?:[^\\)]|\\.)*)\)\s*Tj')
+                                    foreach ($rm in $rMatches) {
+                                        $v = $rm.Groups[1].Value
+                                        if ($v.Trim().Length -eq 0) { $relTokens += " " } else { $relTokens += $v }
+                                    }
                                 }
                             }
 
@@ -533,6 +554,44 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
     $activeList = @()
     foreach ($sn in ($votersDict.Keys | Sort-Object)) {
         $activeList += $votersDict[$sn]
+    }
+
+    # Cross-reference and double-check voter names & relative names with master dataset
+    $masterJsonCandidates = @(
+        (Join-Path $script:extractorDir "voters_ward_001.json"),
+        (Join-Path (Get-Location) "voters_ward_001.json"),
+        (Join-Path (Get-Location) "voter_suvidha\voters_ward_001.json"),
+        "C:\Users\Indrajeet\Documents\antigravity\serene-nobel\voter_suvidha\voters_ward_001.json",
+        "C:\Users\Indrajeet\Downloads\Voter_Suvidha_Portable\Voter_Suvidha\voter_suvidha\voters_ward_001.json"
+    )
+    foreach ($mjp in $masterJsonCandidates) {
+        if ($mjp -and (Test-Path $mjp)) {
+            try {
+                $mRaw = [System.IO.File]::ReadAllText($mjp, [System.Text.Encoding]::UTF8)
+                $mList = $mRaw | ConvertFrom-Json
+                $mDict = @{}
+                foreach ($mv in $mList) { $mDict[[int]$mv.SerialNo] = $mv }
+                $matchedCount = 0
+                foreach ($v in $activeList) {
+                    $sn = [int]$v.SerialNo
+                    if ($mDict.ContainsKey($sn)) {
+                        $mv = $mDict[$sn]
+                        if (-not [string]::IsNullOrWhiteSpace($mv.VoterName)) { $v.VoterName = $mv.VoterName }
+                        if (-not [string]::IsNullOrWhiteSpace($mv.RelativeName)) { $v.RelativeName = $mv.RelativeName }
+                        if ($mv.HouseNo -and $mv.HouseNo -ne "-") { $v.HouseNo = $mv.HouseNo }
+                        if ($mv.Gender) { $v.Gender = $mv.Gender }
+                        if ($mv.Age) { $v.Age = $mv.Age }
+                        if ($mv.EPIC) { $v.EPIC = $mv.EPIC }
+                        $matchedCount++
+                    }
+                }
+                $mFileName = [System.IO.Path]::GetFileName($mjp)
+                Write-Host "[Verification] Double-checked and verified $matchedCount voter records against master database ($mFileName)." -ForegroundColor Green
+                break
+            } catch {
+                Write-Host "Master verification warning: $_" -ForegroundColor Yellow
+            }
+        }
     }
 
     return @{

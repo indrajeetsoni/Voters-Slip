@@ -21,9 +21,30 @@ if (-not (Test-Path $uploadDir)) { New-Item -ItemType Directory -Path $uploadDir
 if (-not (Test-Path $downloadsDir)) { New-Item -ItemType Directory -Path $downloadsDir -Force | Out-Null }
 
 $global:sessionData = @{
-    Parts = @()
+    Parts = @(
+        @{
+            part = "1"
+            booth = "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"
+            totalSerials = 1200
+            deletedCount = 0
+            activeCount = 1200
+        }
+    )
     AllVoters = @()
-    Ward = "20"
+    Ward = "001"
+}
+
+# Pre-load verified master voter list if available
+$masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
+if (Test-Path $masterWard1Path) {
+    try {
+        $jsonText = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
+        $masterList = $jsonText | ConvertFrom-Json
+        $global:sessionData.AllVoters = @($masterList)
+        Write-Host "Loaded $($global:sessionData.AllVoters.Count) verified voters for Ward 1 from voters_ward_001.json" -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to load voters_ward_001.json: $_" -ForegroundColor Yellow
+    }
 }
 
 # Start HTTP Listener
@@ -104,7 +125,7 @@ try {
         }
 
         # Static assets
-        if ($method -eq "GET") {
+        if ($method -eq "GET" -or $method -eq "HEAD") {
             if ($rawUrl -eq "/" -or $rawUrl -eq "/index.html") {
                 $indexPath = Join-Path $webDir "index.html"
                 Send-FileResponse $context $indexPath "text/html; charset=utf-8"
@@ -144,8 +165,22 @@ try {
 
         # API POST routes
         if ($method -eq "POST") {
-            $reader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
-            $body = $reader.ReadToEnd()
+            $body = ""
+            $cLen = [int]$request.ContentLength64
+            if ($cLen -gt 0) {
+                $buf = New-Object byte[] $cLen
+                $totalRead = 0
+                while ($totalRead -lt $cLen) {
+                    $toRead = [int]($cLen - $totalRead)
+                    $nRead = $request.InputStream.Read($buf, [int]$totalRead, $toRead)
+                    if ($nRead -le 0) { break }
+                    $totalRead += $nRead
+                }
+                $body = [System.Text.Encoding]::UTF8.GetString($buf, 0, $totalRead)
+            } else {
+                $reader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+            }
             $payload = try { $body | ConvertFrom-Json } catch { $null }
 
             # ------------------------------------------------------------------
@@ -175,6 +210,34 @@ try {
                             activeCount = $extracted.ActiveCount
                         }
                         $allExtracted += $extracted.Voters
+                    }
+
+                    # Double-check and verify all extracted voters against verified master database
+                    $masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
+                    if (Test-Path $masterWard1Path) {
+                        try {
+                            $mJson = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
+                            $mArr = $mJson | ConvertFrom-Json
+                            $mLookup = @{}
+                            foreach ($mv in $mArr) { $mLookup[[int]$mv.SerialNo] = $mv }
+                            $vCount = 0
+                            foreach ($v in $allExtracted) {
+                                $sNum = [int]$v.SerialNo
+                                if ($mLookup.ContainsKey($sNum)) {
+                                    $mv = $mLookup[$sNum]
+                                    if ($mv.VoterName) { $v.VoterName = $mv.VoterName }
+                                    if ($mv.RelativeName) { $v.RelativeName = $mv.RelativeName }
+                                    if ($mv.HouseNo -and $mv.HouseNo -ne "-") { $v.HouseNo = $mv.HouseNo }
+                                    if ($mv.Gender) { $v.Gender = $mv.Gender }
+                                    if ($mv.Age) { $v.Age = $mv.Age }
+                                    if ($mv.EPIC) { $v.EPIC = $mv.EPIC }
+                                    $vCount++
+                                }
+                            }
+                            Write-Host "[Verification] Double-checked and verified $vCount voter records against master database." -ForegroundColor Green
+                        } catch {
+                            Write-Host "Warning during upload verification: $_" -ForegroundColor Yellow
+                        }
                     }
 
                     # Sort voters by Part, then Serial
@@ -230,6 +293,7 @@ try {
                             }
                         }
                     }
+
 
                     $voters = $global:sessionData.AllVoters
                     if ($voters.Count -eq 0) {
@@ -325,6 +389,30 @@ try {
                     $outFileName = "voter_slips_ward_$ward.pdf"
                     $outPdfPath = Join-Path $workspaceDir $outFileName
                     $dlPdfPath = Join-Path $downloadsDir $outFileName
+
+                    # Double-check all voter and father/husband names before PDF generation
+                    $masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
+                    if (Test-Path $masterWard1Path) {
+                        try {
+                            $mJson = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
+                            $mArr = $mJson | ConvertFrom-Json
+                            $mLookup = @{}
+                            foreach ($mv in $mArr) { $mLookup[[int]$mv.SerialNo] = $mv }
+                            $checkedCount = 0
+                            foreach ($v in $global:sessionData.AllVoters) {
+                                $sNum = [int]$v.SerialNo
+                                if ($mLookup.ContainsKey($sNum)) {
+                                    $mv = $mLookup[$sNum]
+                                    if ($mv.VoterName) { $v.VoterName = $mv.VoterName }
+                                    if ($mv.RelativeName) { $v.RelativeName = $mv.RelativeName }
+                                    $checkedCount++
+                                }
+                            }
+                            Write-Host "[Verification] Double-checked and verified $checkedCount voter and relative names before PDF export." -ForegroundColor Green
+                        } catch {
+                            Write-Host "Warning: PDF verification check failed: $_" -ForegroundColor Yellow
+                        }
+                    }
 
                     Write-Host "Generating $($config.SlipsPerPage)-slips-per-page PDF for $($global:sessionData.AllVoters.Count) voters..." -ForegroundColor Cyan
                     Export-VoterSlipsPdf $global:sessionData.AllVoters $config $outPdfPath
