@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # VOTER SUVIDHA - LOCAL WEB SERVER & API BACKEND
 # ==============================================================================
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -235,14 +235,14 @@ try {
                     if ($voters.Count -eq 0) {
                         # Provide mock sample for preview
                         $voters = @(
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=1; VoterName="कमला देवी"; RelativeName="धर्म चन्द"; HouseNo="179"; Age="65"; Gender="स्त्री"; EPIC="IUG1970250" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=2; VoterName="कमल कुमार"; RelativeName="जयसिंह"; HouseNo="92"; Age="45"; Gender="पुरुष"; EPIC="FST1400456" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=3; VoterName="शकुंतला"; RelativeName="हीरा चन्द"; HouseNo="133"; Age="68"; Gender="स्त्री"; EPIC="RJ/12/099/108501" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=4; VoterName="सुभाष चन्द"; RelativeName="मोहन लाल"; HouseNo="133"; Age="63"; Gender="पुरुष"; EPIC="RJ/12/099/108080" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=5; VoterName="हेमंत कुमार"; RelativeName="लेखराज"; HouseNo="3"; Age="70"; Gender="पुरुष"; EPIC="RJ/12/099/126492" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=6; VoterName="विद्या दिवाकर"; RelativeName="हेमंत कुमार"; HouseNo="3"; Age="67"; Gender="स्त्री"; EPIC="RJ/12/099/126176" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=7; VoterName="प्रतिष्ठा"; RelativeName="क्षितिज"; HouseNo="3"; Age="47"; Gender="स्त्री"; EPIC="IUG0262980" },
-                            [PSCustomObject]@{ Ward="20"; Part="1"; Booth="सनातन धर्म प्रकाशक उ.मा.वि. (कमरा 1)"; SerialNo=8; VoterName="क्षितिज दिवाकर"; RelativeName="हेमंत दिवाकर"; HouseNo="3"; Age="41"; Gender="पुरुष"; EPIC="FST1167451" }
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=1; VoterName="हजारी"; RelativeName="सुरजमल"; HouseNo="1"; Age="69"; Gender="पुरुष"; EPIC="IUG2213916" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=2; VoterName="पांची"; RelativeName="हजारी"; HouseNo="1"; Age="68"; Gender="स्त्री"; EPIC="RJ/12/100/150390" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=3; VoterName="रामलाल"; RelativeName="सुरजमल"; HouseNo="1"; Age="59"; Gender="पुरुष"; EPIC="RJ/12/100/150391" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=4; VoterName="संतोष"; RelativeName="रामलाल"; HouseNo="1"; Age="58"; Gender="स्त्री"; EPIC="RJ/12/100/150392" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=5; VoterName="प्रेमराज"; RelativeName="हजारी"; HouseNo="1"; Age="45"; Gender="पुरुष"; EPIC="FLB1079664" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=6; VoterName="जसकरण"; RelativeName="हजारी"; HouseNo="1"; Age="43"; Gender="पुरुष"; EPIC="FLB1079672" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=7; VoterName="रामेश्वर लाल"; RelativeName="सुरजमल"; HouseNo="1"; Age="41"; Gender="पुरुष"; EPIC="RJ/12/100/150393" },
+                            [PSCustomObject]@{ Ward="1"; Part="1"; Booth="1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"; SerialNo=8; VoterName="कौशल्या"; RelativeName="रामेश्वर लाल"; HouseNo="1"; Age="38"; Gender="स्त्री"; EPIC="IUG0707646" }
                         )
                     }
 

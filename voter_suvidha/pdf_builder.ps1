@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # VOTER SUVIDHA - PDF & HTML SLIP GENERATOR MODULE
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -17,13 +17,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "18px"
                 DetailSize = "13.8px"
                 BoothSize = "12.5px"
-                CNameSize = "16px"
-                CPartySize = "12.5px"
-                CAppealSize = "11px"
-                ImgW = "68px"
-                ImgH = "76px"
-                SymW = "52px"
-                SymH = "52px"
+                CNameSize = "17.5px"
+                CPartySize = "13.5px"
+                CAppealSize = "11.5px"
+                ImgW = "95px"
+                ImgH = "108px"
+                SymW = "82px"
+                SymH = "82px"
+                AvatarSize = "60px"
             }
         }
         6 {
@@ -37,13 +38,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "16.5px"
                 DetailSize = "12.5px"
                 BoothSize = "11px"
-                CNameSize = "14px"
-                CPartySize = "11px"
-                CAppealSize = "9.2px"
-                ImgW = "58px"
-                ImgH = "64px"
-                SymW = "42px"
-                SymH = "42px"
+                CNameSize = "15px"
+                CPartySize = "12px"
+                CAppealSize = "10px"
+                ImgW = "82px"
+                ImgH = "94px"
+                SymW = "68px"
+                SymH = "68px"
+                AvatarSize = "52px"
             }
         }
         8 {
@@ -57,13 +59,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "14.5px"
                 DetailSize = "11px"
                 BoothSize = "9.8px"
-                CNameSize = "12.2px"
-                CPartySize = "9.5px"
-                CAppealSize = "8px"
-                ImgW = "46px"
-                ImgH = "50px"
-                SymW = "34px"
-                SymH = "34px"
+                CNameSize = "13px"
+                CPartySize = "10.5px"
+                CAppealSize = "8.8px"
+                ImgW = "68px"
+                ImgH = "78px"
+                SymW = "56px"
+                SymH = "56px"
+                AvatarSize = "42px"
             }
         }
         10 {
@@ -77,13 +80,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "13px"
                 DetailSize = "9.8px"
                 BoothSize = "8.8px"
-                CNameSize = "11px"
-                CPartySize = "8.5px"
-                CAppealSize = "7.2px"
-                ImgW = "40px"
-                ImgH = "44px"
-                SymW = "28px"
-                SymH = "28px"
+                CNameSize = "11.5px"
+                CPartySize = "9.5px"
+                CAppealSize = "7.8px"
+                ImgW = "56px"
+                ImgH = "64px"
+                SymW = "44px"
+                SymH = "44px"
+                AvatarSize = "34px"
             }
         }
         12 {
@@ -97,13 +101,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "11.8px"
                 DetailSize = "8.8px"
                 BoothSize = "8px"
-                CNameSize = "9.8px"
-                CPartySize = "7.8px"
-                CAppealSize = "6.8px"
-                ImgW = "34px"
-                ImgH = "38px"
-                SymW = "24px"
-                SymH = "24px"
+                CNameSize = "10.5px"
+                CPartySize = "8.5px"
+                CAppealSize = "7.2px"
+                ImgW = "48px"
+                ImgH = "56px"
+                SymW = "38px"
+                SymH = "38px"
+                AvatarSize = "30px"
             }
         }
         default {
@@ -117,13 +122,14 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "14.5px"
                 DetailSize = "11px"
                 BoothSize = "9.8px"
-                CNameSize = "12.2px"
-                CPartySize = "9.5px"
-                CAppealSize = "8px"
-                ImgW = "46px"
-                ImgH = "50px"
-                SymW = "34px"
-                SymH = "34px"
+                CNameSize = "13px"
+                CPartySize = "10.5px"
+                CAppealSize = "8.8px"
+                ImgW = "68px"
+                ImgH = "78px"
+                SymW = "56px"
+                SymH = "56px"
+                AvatarSize = "42px"
             }
         }
     }
@@ -173,15 +179,15 @@ function Generate-VoterSlipsHtml($votersList, $config, $isSampleOnly = $false) {
     [void]$sb.AppendLine('    .voter-line strong { color: #000; }')
     [void]$sb.AppendLine("    .booth-line { font-size: $($layout.BoothSize); line-height: 1.22; border-top: 1.2px dashed #666; padding-top: 2px; margin-top: 1px; color: #000; background: #fafafa; border-radius: 2px; padding-left: 2px; }")
     [void]$sb.AppendLine('    .booth-label { font-weight: 900; color: #000; }')
-    [void]$sb.AppendLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 3px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; box-sizing: border-box; }')
-    [void]$sb.AppendLine("    .cand-photo-frame { width: $($layout.ImgW); height: $($layout.ImgH); border-radius: 4px; border: 1.2px solid #7986cb; background: #e8eaf6; display: flex; align-items: center; justify-content: center; overflow: hidden; }")
+    [void]$sb.AppendLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; box-sizing: border-box; }')
+    [void]$sb.AppendLine("    .cand-photo-frame { width: $($layout.ImgW); height: $($layout.ImgH); border-radius: 4px; border: 1.2px solid #7986cb; background: #e8eaf6; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }")
     [void]$sb.AppendLine('    .cand-photo { width: 100%; height: 100%; object-fit: cover; display: block; }')
-    [void]$sb.AppendLine('    .cand-avatar { font-size: 28px; line-height: 1; }')
-    [void]$sb.AppendLine("    .cand-name { font-size: $($layout.CNameSize); font-weight: 900; color: #0d47a1; line-height: 1.2; margin-top: 1px; }")
-    [void]$sb.AppendLine("    .cand-symbol-frame { width: $($layout.SymW); height: $($layout.SymH); display: flex; align-items: center; justify-content: center; margin: 1px 0; }")
-    [void]$sb.AppendLine('    .cand-symbol-img { max-width: 100%; max-height: 100%; object-fit: contain; }')
-    [void]$sb.AppendLine("    .cand-party { font-size: $($layout.CPartySize); font-weight: 800; color: #2e7d32; line-height: 1.2; }")
-    [void]$sb.AppendLine("    .cand-appeal { font-size: $($layout.CAppealSize); font-weight: 800; color: #b71c1c; line-height: 1.2; margin-top: 1px; }")
+    [void]$sb.AppendLine("    .cand-avatar { font-size: $($layout.AvatarSize); line-height: 1; }")
+    [void]$sb.AppendLine("    .cand-name { font-size: $($layout.CNameSize); font-weight: 900; color: #0d47a1; line-height: 1.15; margin: 1px 0; }")
+    [void]$sb.AppendLine("    .cand-symbol-frame { width: $($layout.SymW); height: $($layout.SymH); display: flex; align-items: center; justify-content: center; margin: 1px 0; flex-shrink: 0; }")
+    [void]$sb.AppendLine('    .cand-symbol-img { width: 100%; height: 100%; object-fit: contain; }')
+    [void]$sb.AppendLine("    .cand-party { font-size: $($layout.CPartySize); font-weight: 800; color: #2e7d32; line-height: 1.15; }")
+    [void]$sb.AppendLine("    .cand-appeal { font-size: $($layout.CAppealSize); font-weight: 800; color: #b71c1c; line-height: 1.15; margin-top: 1px; }")
     [void]$sb.AppendLine('  </style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')

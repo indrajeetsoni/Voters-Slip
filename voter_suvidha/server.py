@@ -72,33 +72,33 @@ def get_grid_and_font(slips_per_page):
     font_scale = {
         4: {
             "title": "16px", "meta": "13px", "name": "18px", "detail": "13.8px", "booth": "12.5px",
-            "c_name": "16px", "c_party": "12.5px", "c_app": "11px",
-            "img_w": "68px", "img_h": "76px", "sym_w": "52px", "sym_h": "52px"
+            "c_name": "17.5px", "c_party": "13.5px", "c_app": "11.5px",
+            "img_w": "95px", "img_h": "108px", "sym_w": "82px", "sym_h": "82px", "avatar": "60px"
         },
         6: {
             "title": "15px", "meta": "12px", "name": "16.5px", "detail": "12.5px", "booth": "11px",
-            "c_name": "14px", "c_party": "11px", "c_app": "9.2px",
-            "img_w": "58px", "img_h": "64px", "sym_w": "42px", "sym_h": "42px"
+            "c_name": "15px", "c_party": "12px", "c_app": "10px",
+            "img_w": "82px", "img_h": "94px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px"
         },
         8: {
             "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-            "c_name": "12.2px", "c_party": "9.5px", "c_app": "8px",
-            "img_w": "46px", "img_h": "50px", "sym_w": "34px", "sym_h": "34px"
+            "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
+            "img_w": "68px", "img_h": "78px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
         },
         10: {
             "title": "12px", "meta": "9.5px", "name": "13px", "detail": "9.8px", "booth": "8.8px",
-            "c_name": "11px", "c_party": "8.5px", "c_app": "7.2px",
-            "img_w": "40px", "img_h": "44px", "sym_w": "28px", "sym_h": "28px"
+            "c_name": "11.5px", "c_party": "9.5px", "c_app": "7.8px",
+            "img_w": "56px", "img_h": "64px", "sym_w": "44px", "sym_h": "44px", "avatar": "34px"
         },
         12: {
             "title": "10.5px", "meta": "8.8px", "name": "11.8px", "detail": "8.8px", "booth": "8px",
-            "c_name": "9.8px", "c_party": "7.8px", "c_app": "6.8px",
-            "img_w": "34px", "img_h": "38px", "sym_w": "24px", "sym_h": "24px"
+            "c_name": "10.5px", "c_party": "8.5px", "c_app": "7.2px",
+            "img_w": "48px", "img_h": "56px", "sym_w": "38px", "sym_h": "38px", "avatar": "30px"
         }
     }.get(slips_per_page, {
         "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-        "c_name": "12.2px", "c_party": "9.5px", "c_app": "8px",
-        "img_w": "46px", "img_h": "50px", "sym_w": "34px", "sym_h": "34px"
+        "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
+        "img_w": "68px", "img_h": "78px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
     })
 
     return grid_css, font_scale
@@ -250,11 +250,11 @@ def get_full_page_css(grid_css, font_scale):
       border: 1.8px solid #1a237e;
       border-radius: 6px;
       background: #fbfbfd;
-      padding: 3px 3px;
+      padding: 4px 3px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
+      justify-content: space-around;
       text-align: center;
       box-sizing: border-box;
     }}
@@ -268,6 +268,7 @@ def get_full_page_css(grid_css, font_scale):
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      flex-shrink: 0;
     }}
     .cand-photo {{
       width: 100%;
@@ -276,15 +277,15 @@ def get_full_page_css(grid_css, font_scale):
       display: block;
     }}
     .cand-avatar {{
-      font-size: 28px;
+      font-size: {font_scale['avatar']};
       line-height: 1;
     }}
     .cand-name {{
       font-size: {font_scale['c_name']};
       font-weight: 900;
       color: #0d47a1;
-      line-height: 1.2;
-      margin-top: 1px;
+      line-height: 1.15;
+      margin: 1px 0;
     }}
     .cand-symbol-frame {{
       width: {font_scale['sym_w']};
@@ -293,23 +294,24 @@ def get_full_page_css(grid_css, font_scale):
       align-items: center;
       justify-content: center;
       margin: 1px 0;
+      flex-shrink: 0;
     }}
     .cand-symbol-img {{
-      max-width: 100%;
-      max-height: 100%;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
     }}
     .cand-party {{
       font-size: {font_scale['c_party']};
       font-weight: 800;
       color: #2e7d32;
-      line-height: 1.2;
+      line-height: 1.15;
     }}
     .cand-appeal {{
       font-size: {font_scale['c_app']};
       font-weight: 800;
       color: #b71c1c;
-      line-height: 1.2;
+      line-height: 1.15;
       margin-top: 1px;
     }}
     """

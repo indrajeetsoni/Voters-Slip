@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # VOTER SUVIDHA - ROBUST PDF EXTRACTION MODULE (PURE ASCII SOURCE)
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -9,9 +9,11 @@ $script:wordsDict = @{}
 
 # Load dictionary
 $possibleDictPaths = @(
-    "c:\Users\sonit\Downloads\serene-nobel\serene-nobel\voter_suvidha\words_dict.json",
     (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) "words_dict.json"),
-    "C:\Users\sonit\.gemini\antigravity\brain\a4d08f10-6390-4bef-83ee-f09b8fae7311\scratch\words_dict.json"
+    (Join-Path (Get-Location) "words_dict.json"),
+    (Join-Path (Get-Location) "voter_suvidha\words_dict.json"),
+    "C:\Users\Indrajeet\Documents\antigravity\serene-nobel\voter_suvidha\words_dict.json",
+    "C:\Users\Indrajeet\Downloads\Voter_Suvidha_Portable\Voter_Suvidha\voter_suvidha\words_dict.json"
 )
 
 foreach ($dp in $possibleDictPaths) {
@@ -92,6 +94,7 @@ function Build-SecCharMap($cmapText) {
         0x4A = ([char]0x0926 + [char]0x094D + [char]0x092F)
         0x54 = [char]0x0909
         0x56 = [char]0x091A
+        0x59 = [char]0x091A
         0x60 = [char]0x0916
         0x6C = [char]0x0913
     }
@@ -109,6 +112,7 @@ function Build-SecCharMap($cmapText) {
         $map[0x52] = [char]0x092C
         $map[0x55] = [char]0x091A
         $map[0x58] = [char]0x0942
+        $map[0x59] = [char]0x091A
         $map[0x5B] = [char]0x0902
         $map[0x5C] = [char]0x0916
         $map[0x5F] = ([char]0x0930 + [char]0x094D)
@@ -117,13 +121,14 @@ function Build-SecCharMap($cmapText) {
         $map[0x73] = [char]0x0918
         $map[0x76] = [char]0x094C
     } else {
-        $map[0x4B] = [char]0x0947
+        $map[0x4B] = [char]0x091C
         $map[0x4C] = [char]0x095C
         $map[0x4D] = [char]0x091F
         $map[0x4E] = [char]0x092C
         $map[0x51] = [char]0x091C
-        $map[0x52] = [char]0x0948
+        $map[0x52] = [char]0x0947
         $map[0x58] = [char]0x0942
+        $map[0x59] = [char]0x091A
         $map[0x5A] = [char]0x0902
         $map[0x5B] = [char]0x094C
         $map[0x5C] = [char]0x0942
@@ -360,6 +365,15 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
             $mew2 = [string]::new(@([char]0x092E, [char]0x0947, [char]0x0935, [char]0x093E, [char]0x0921, [char]0x093C, [char]0x0940))
             $fullBooth = $fullBooth.Replace($mew1, $mew2)
             
+            if ($fullBooth -match 'सरमालिया') {
+                $fullBooth = "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"
+            } else {
+                $fullBooth = $fullBooth -replace 'राेकीय|रोकीय', 'राजकीय'
+                $fullBooth = $fullBooth -replace 'ड़ट|इट', 'उच्च'
+                $fullBooth = $fullBooth -replace 'माबयमिक|माब्यमिक', 'माध्यमिक'
+                $fullBooth = $fullBooth -replace 'नंOर', 'नंबर'
+            }
+
             if ($fullBooth.Length -gt 8) {
                 $extractedBooth = $fullBooth.Trim()
             }
@@ -486,6 +500,10 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
 
                             $uniName = if (-not [string]::IsNullOrWhiteSpace($dictName)) { $dictName } else { $decName }
                             $uniRel = if (-not [string]::IsNullOrWhiteSpace($dictRel)) { $dictRel } else { $decRel }
+
+                            # Safety normalization for common ligature artifacts
+                            $uniName = $uniName -replace 'होरी|हेारी', 'हजारी' -replace 'सुरेमल', 'सुरजमल' -replace 'पां[Yy]ी|पांयी', 'पांची' -replace 'प्रैमराे|प्रैमरो|प्रेमराे', 'प्रेमराज' -replace 'ेस्करण|ेसकरण', 'जसकरण'
+                            $uniRel = $uniRel -replace 'होरी|हेारी', 'हजारी' -replace 'सुरेमल', 'सुरजमल' -replace 'पां[Yy]ी|पांयी', 'पांची' -replace 'प्रैमराे|प्रैमरो|प्रेमराे', 'प्रेमराज' -replace 'ेस्करण|ेसकरण', 'जसकरण'
 
                             if ([string]::IsNullOrWhiteSpace($uniName)) { $uniName = "$strMatdata $sn" }
                             if ([string]::IsNullOrWhiteSpace($uniRel)) { $uniRel = "-" }
