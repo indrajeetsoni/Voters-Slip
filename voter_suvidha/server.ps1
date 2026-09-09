@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # VOTER SUVIDHA - LOCAL WEB SERVER & API BACKEND
 # ==============================================================================
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -63,6 +63,18 @@ while (-not $started -and $port -le 5010) {
         Write-Host "   VOTER SUVIDHA (वोटर सुविधा) - LOCAL SERVER STARTED" -ForegroundColor Green
         Write-Host "   URL: http://127.0.0.1:$port/" -ForegroundColor Yellow
         Write-Host "=======================================================================" -ForegroundColor Cyan
+
+        # Automatically open web browser
+        try {
+            $bExe = Get-InstalledBrowserPath
+            if ($bExe) {
+                Start-Process -FilePath $bExe -ArgumentList "http://127.0.0.1:$port/"
+            } else {
+                Start-Process "http://127.0.0.1:$port/"
+            }
+        } catch {
+            Start-Process "http://127.0.0.1:$port/"
+        }
     } catch {
         $port++
     }

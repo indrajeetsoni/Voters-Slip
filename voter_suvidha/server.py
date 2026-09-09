@@ -732,7 +732,12 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 if __name__ == "__main__":
+    import webbrowser
     with ThreadedHTTPServer(("127.0.0.1", PORT), VoterSuvidhaHandler) as httpd:
         print(f"Voter Suvidha server running on http://127.0.0.1:{PORT}")
         sys.stdout.flush()
+        try:
+            webbrowser.open(f"http://127.0.0.1:{PORT}")
+        except Exception:
+            pass
         httpd.serve_forever()
