@@ -200,9 +200,21 @@ try {
             # ------------------------------------------------------------------
             if ($rawUrl -eq "/api/upload") {
                 try {
+                    # Reset server memory cache completely on new upload
+                    $global:sessionData = @{
+                        Ward = ""
+                        Parts = @()
+                        AllVoters = @()
+                    }
+
                     $partsResult = @()
                     $allExtracted = @()
-                    $detectedWard = "20"
+                    $detectedWard = "1"
+
+                    $extractorPy = Join-Path $scriptDir "extractor.py"
+                    $pyCmd = $null
+                    if (Get-Command py -ErrorAction SilentlyContinue) { $pyCmd = "py" }
+                    elseif (Get-Command python -ErrorAction SilentlyContinue) { $pyCmd = "python" }
 
                     foreach ($f in $payload.files) {
                         $fn = $f.filename
@@ -211,7 +223,38 @@ try {
                         [System.IO.File]::WriteAllBytes($targetPath, $fileBytes)
 
                         Write-Host "Processing uploaded PDF: $fn..." -ForegroundColor Cyan
-                        $extracted = Extract-VotersFromPdf $targetPath
+                        $extracted = $null
+
+                        if ($pyCmd -and (Test-Path $extractorPy)) {
+                            $tmpJson = [System.IO.Path]::GetTempFileName()
+                            try {
+                                & $pyCmd "$extractorPy" --pdf "$targetPath" --out-json "$tmpJson" 2>&1 | Out-Null
+                                if (Test-Path $tmpJson) {
+                                    $rawJ = [System.IO.File]::ReadAllText($tmpJson, [System.Text.Encoding]::UTF8)
+                                    $pObj = $rawJ | ConvertFrom-Json
+                                    if ($pObj -and $pObj.voters) {
+                                        $extracted = @{
+                                            FileName = [System.IO.Path]::GetFileName($targetPath)
+                                            Ward = "$($pObj.ward)"
+                                            Part = "$($pObj.part)"
+                                            Booth = "$($pObj.booth)"
+                                            TotalSerials = [int]$pObj.totalSerials
+                                            DeletedCount = [int]$pObj.deletedCount
+                                            ActiveCount = [int]$pObj.activeCount
+                                            Voters = @($pObj.voters)
+                                        }
+                                    }
+                                }
+                            } catch {
+                                Write-Host "Python extractor delegation warning: $_" -ForegroundColor Yellow
+                            } finally {
+                                if (Test-Path $tmpJson) { Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue }
+                            }
+                        }
+
+                        if (-not $extracted) {
+                            $extracted = Extract-VotersFromPdf $targetPath
+                        }
                         
                         $detectedWard = $extracted.Ward
                         $partsResult += @{
@@ -222,34 +265,6 @@ try {
                             activeCount = $extracted.ActiveCount
                         }
                         $allExtracted += $extracted.Voters
-                    }
-
-                    # Double-check and verify all extracted voters against verified master database
-                    $masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
-                    if (Test-Path $masterWard1Path) {
-                        try {
-                            $mJson = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
-                            $mArr = $mJson | ConvertFrom-Json
-                            $mLookup = @{}
-                            foreach ($mv in $mArr) { $mLookup[[int]$mv.SerialNo] = $mv }
-                            $vCount = 0
-                            foreach ($v in $allExtracted) {
-                                $sNum = [int]$v.SerialNo
-                                if ($mLookup.ContainsKey($sNum)) {
-                                    $mv = $mLookup[$sNum]
-                                    if ($mv.VoterName) { $v.VoterName = $mv.VoterName }
-                                    if ($mv.RelativeName) { $v.RelativeName = $mv.RelativeName }
-                                    if ($mv.HouseNo -and $mv.HouseNo -ne "-") { $v.HouseNo = $mv.HouseNo }
-                                    if ($mv.Gender) { $v.Gender = $mv.Gender }
-                                    if ($mv.Age) { $v.Age = $mv.Age }
-                                    if ($mv.EPIC) { $v.EPIC = $mv.EPIC }
-                                    $vCount++
-                                }
-                            }
-                            Write-Host "[Verification] Double-checked and verified $vCount voter records against master database." -ForegroundColor Green
-                        } catch {
-                            Write-Host "Warning during upload verification: $_" -ForegroundColor Yellow
-                        }
                     }
 
                     # Sort voters by Part, then Serial

@@ -20,6 +20,11 @@ UPLOADS_DIR = os.path.join(SCRIPT_DIR, "uploads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
+try:
+    from voter_suvidha.extractor import extract_pdf_elector_data, export_voters_to_excel
+except ImportError:
+    from extractor import extract_pdf_elector_data, export_voters_to_excel
+
 # Load master voter data from verified Excel
 excel_path = os.path.join(WORKSPACE_DIR, "beawar_ward_001_part_001.xlsx")
 if not os.path.exists(excel_path):
@@ -548,39 +553,88 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_upload(self, post_data):
         import base64
+        # Completely clear existing session memory / cache on every upload
+        global_session.clear()
+        global_session.update({
+            "totalSerials": 0,
+            "activeVoters": [],
+            "deletedVoters": [],
+            "ward": "",
+            "parts": []
+        })
+
+        # Clear previous uploaded temp PDF files from UPLOADS_DIR
+        try:
+            for old_f in os.listdir(UPLOADS_DIR):
+                if old_f.startswith("uploaded_") or old_f.endswith(".tmp"):
+                    old_p = os.path.join(UPLOADS_DIR, old_f)
+                    if os.path.isfile(old_p):
+                        os.remove(old_p)
+        except Exception as e:
+            pass
+
+        parts_list = []
+        all_active_voters = []
+        detected_ward = ""
+        total_serials_sum = 0
+        total_deleted_sum = 0
+
         try:
             payload = json.loads(post_data.decode("utf-8")) if post_data else {}
             files = payload.get("files", [])
-            for f in files:
-                fn = f.get("filename", "uploaded.pdf")
+            for idx, f in enumerate(files, 1):
+                fn = f.get("filename", f"uploaded_part_{idx}.pdf")
                 b64_data = f.get("data", "")
                 if b64_data:
                     target_path = os.path.join(UPLOADS_DIR, fn)
                     with open(target_path, "wb") as upf:
                         upf.write(base64.b64decode(b64_data))
                     print(f"Saved uploaded PDF: {fn}")
-        except Exception as e:
-            print(f"Upload write error: {e}")
 
-        parts_list = [
-            {
-                "part": 1,
-                "booth": "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)",
-                "totalSerials": global_session["totalSerials"],
-                "deletedCount": len(global_session["deletedVoters"]),
-                "activeCount": len(global_session["activeVoters"])
-            }
-        ]
+                    extracted = extract_pdf_elector_data(target_path)
+                    part_num = extracted.get("part", str(idx))
+                    booth_name = extracted.get("booth", "")
+                    part_serials = extracted.get("totalSerials", 0)
+                    part_del = extracted.get("deletedCount", 0)
+                    part_act = extracted.get("activeCount", 0)
+                    part_voters = extracted.get("voters", [])
+
+                    if not detected_ward:
+                        detected_ward = extracted.get("ward", "1")
+
+                    parts_list.append({
+                        "part": part_num,
+                        "booth": booth_name,
+                        "totalSerials": part_serials,
+                        "deletedCount": part_del,
+                        "activeCount": part_act
+                    })
+
+                    total_serials_sum += part_serials
+                    total_deleted_sum += part_del
+                    all_active_voters.extend(part_voters)
+
+        except Exception as e:
+            print(f"Upload processing error: {e}")
+            self.send_json_response({"success": False, "error": str(e)}, status_code=500)
+            return
+
+        global_session["ward"] = detected_ward if detected_ward else "1"
+        global_session["totalSerials"] = total_serials_sum
+        global_session["activeVoters"] = all_active_voters
+        global_session["parts"] = parts_list
+        global_session["deletedVoters"] = list(range(total_deleted_sum))
+
         resp_obj = {
             "success": True,
             "ward": global_session["ward"],
             "totalSerials": global_session["totalSerials"],
-            "totalDeleted": len(global_session["deletedVoters"]),
-            "totalActive": len(global_session["activeVoters"]),
-            "activeVoters": len(global_session["activeVoters"]),
-            "deletedVoters": len(global_session["deletedVoters"]),
+            "totalDeleted": total_deleted_sum,
+            "totalActive": len(all_active_voters),
+            "activeVoters": len(all_active_voters),
+            "deletedVoters": total_deleted_sum,
             "parts": parts_list,
-            "message": "मतदाता सूची (BEAWAR Ward 1 Part 1) सफलतापूर्वक विश्लेषित!"
+            "message": f"मतदाता सूची (वार्ड {global_session['ward']}) सफलतापूर्वक विश्लेषित!"
         }
         self.send_json_response(resp_obj)
 
@@ -592,6 +646,14 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         slips_per_page = int(payload.get("slipsPerPage", 8))
         candidate_photo = payload.get("candidatePhoto", "")
         party_symbol = payload.get("partySymbol", "")
+
+        # Apply booth overrides if provided
+        if payload.get("parts"):
+            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
+            for v in global_session["activeVoters"]:
+                vp = str(v.get("Part", "1"))
+                if vp in part_map:
+                    v["Booth"] = part_map[vp]
 
         voters = global_session["activeVoters"][:slips_per_page]
         grid_css, font_scale = get_grid_and_font(slips_per_page)
@@ -622,17 +684,31 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_html_response(html)
 
     def handle_generate_excel(self, payload):
-        out_filename = f"voter_list_ward_{global_session['ward']}.xlsx"
-        src_excel = os.path.join(WORKSPACE_DIR, "beawar_ward_001_part_001.xlsx")
+        # Apply booth overrides if provided
+        if payload.get("parts"):
+            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
+            for v in global_session["activeVoters"]:
+                vp = str(v.get("Part", "1"))
+                if vp in part_map:
+                    v["Booth"] = part_map[vp]
+
+        ward_num = global_session.get("ward", "1")
+        out_filename = f"voter_list_ward_{ward_num}.xlsx"
         dst_excel = os.path.join(DOWNLOADS_DIR, out_filename)
-        import shutil
-        if os.path.exists(src_excel):
-            shutil.copy(src_excel, dst_excel)
-            ws_excel = os.path.join(WORKSPACE_DIR, out_filename)
-            web_dl_dir = os.path.join(WEB_DIR, "downloads")
-            os.makedirs(web_dl_dir, exist_ok=True)
-            shutil.copy(src_excel, ws_excel)
-            shutil.copy(src_excel, os.path.join(web_dl_dir, out_filename))
+        ws_excel = os.path.join(WORKSPACE_DIR, out_filename)
+        web_dl_dir = os.path.join(WEB_DIR, "downloads")
+        os.makedirs(web_dl_dir, exist_ok=True)
+        web_excel = os.path.join(web_dl_dir, out_filename)
+
+        try:
+            export_voters_to_excel(global_session["activeVoters"], dst_excel)
+            import shutil
+            shutil.copy(dst_excel, ws_excel)
+            shutil.copy(dst_excel, web_excel)
+        except Exception as e:
+            print(f"Excel export error: {e}")
+            self.send_json_response({"success": False, "error": str(e)}, status_code=500)
+            return
 
         resp_obj = {
             "success": True,
@@ -651,7 +727,16 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         candidate_photo = payload.get("candidatePhoto", "")
         party_symbol = payload.get("partySymbol", "")
 
-        out_filename = f"voter_slips_ward_{global_session['ward']}.pdf"
+        # Apply booth overrides if provided
+        if payload.get("parts"):
+            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
+            for v in global_session["activeVoters"]:
+                vp = str(v.get("Part", "1"))
+                if vp in part_map:
+                    v["Booth"] = part_map[vp]
+
+        ward_num = global_session.get("ward", "1")
+        out_filename = f"voter_slips_ward_{ward_num}.pdf"
         dst_pdf = os.path.join(DOWNLOADS_DIR, out_filename)
 
         self.generate_custom_pdf(

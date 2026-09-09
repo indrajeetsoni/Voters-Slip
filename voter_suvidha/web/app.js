@@ -56,12 +56,12 @@ function handleFiles(files) {
     return;
   }
 
-  // Merge new files avoid duplicates
-  pdfs.forEach(f => {
-    if (!selectedFiles.some(existing => existing.name === f.name)) {
-      selectedFiles.push(f);
-    }
-  });
+  // Clear previous session memory and replace with newly uploaded file(s)
+  selectedFiles = pdfs;
+  extractedData = null;
+
+  const summarySec = document.getElementById('summarySection');
+  if (summarySec) summarySec.style.display = 'none';
 
   renderFileList();
 }
@@ -164,6 +164,8 @@ async function processUploadedFiles() {
     return;
   }
 
+  extractedData = null;
+
   const indicator = document.getElementById('processingIndicator');
   const procTitle = document.getElementById('processingTitle');
   const procDetail = document.getElementById('processingDetail');
@@ -213,7 +215,7 @@ function renderSummary(data) {
   document.getElementById('statActiveVoters').innerText = data.totalActive.toLocaleString('en-IN');
   document.getElementById('statDeletedVoters').innerText = data.totalDeleted.toLocaleString('en-IN');
   document.getElementById('statTotalSerials').innerText = data.totalSerials.toLocaleString('en-IN');
-  document.getElementById('statWardNum').innerText = data.ward || '20';
+  document.getElementById('statWardNum').innerText = data.ward || '1';
   document.getElementById('statPartsCount').innerText = `${data.parts.length} भाग शामिल`;
 
   // Render Parts table

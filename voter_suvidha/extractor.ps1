@@ -266,7 +266,7 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
     $ward = $overrideWard
     if ([string]::IsNullOrWhiteSpace($ward)) {
         $wm = [regex]::Match($fileName, '(?i)Ward\s*(?:No)?[-_\s]*0*(\d+)')
-        $ward = if ($wm.Success) { $wm.Groups[1].Value } else { "20" }
+        $ward = if ($wm.Success) { $wm.Groups[1].Value } else { "1" }
     }
 
     $part = $overridePart
@@ -554,44 +554,6 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
     $activeList = @()
     foreach ($sn in ($votersDict.Keys | Sort-Object)) {
         $activeList += $votersDict[$sn]
-    }
-
-    # Cross-reference and double-check voter names & relative names with master dataset
-    $masterJsonCandidates = @(
-        (Join-Path $script:extractorDir "voters_ward_001.json"),
-        (Join-Path (Get-Location) "voters_ward_001.json"),
-        (Join-Path (Get-Location) "voter_suvidha\voters_ward_001.json"),
-        "C:\Users\Indrajeet\Documents\antigravity\serene-nobel\voter_suvidha\voters_ward_001.json",
-        "C:\Users\Indrajeet\Downloads\Voter_Suvidha_Portable\Voter_Suvidha\voter_suvidha\voters_ward_001.json"
-    )
-    foreach ($mjp in $masterJsonCandidates) {
-        if ($mjp -and (Test-Path $mjp)) {
-            try {
-                $mRaw = [System.IO.File]::ReadAllText($mjp, [System.Text.Encoding]::UTF8)
-                $mList = $mRaw | ConvertFrom-Json
-                $mDict = @{}
-                foreach ($mv in $mList) { $mDict[[int]$mv.SerialNo] = $mv }
-                $matchedCount = 0
-                foreach ($v in $activeList) {
-                    $sn = [int]$v.SerialNo
-                    if ($mDict.ContainsKey($sn)) {
-                        $mv = $mDict[$sn]
-                        if (-not [string]::IsNullOrWhiteSpace($mv.VoterName)) { $v.VoterName = $mv.VoterName }
-                        if (-not [string]::IsNullOrWhiteSpace($mv.RelativeName)) { $v.RelativeName = $mv.RelativeName }
-                        if ($mv.HouseNo -and $mv.HouseNo -ne "-") { $v.HouseNo = $mv.HouseNo }
-                        if ($mv.Gender) { $v.Gender = $mv.Gender }
-                        if ($mv.Age) { $v.Age = $mv.Age }
-                        if ($mv.EPIC) { $v.EPIC = $mv.EPIC }
-                        $matchedCount++
-                    }
-                }
-                $mFileName = [System.IO.Path]::GetFileName($mjp)
-                Write-Host "[Verification] Double-checked and verified $matchedCount voter records against master database ($mFileName)." -ForegroundColor Green
-                break
-            } catch {
-                Write-Host "Master verification warning: $_" -ForegroundColor Yellow
-            }
-        }
     }
 
     return @{
