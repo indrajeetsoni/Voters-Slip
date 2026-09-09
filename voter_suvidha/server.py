@@ -78,38 +78,38 @@ def get_grid_and_font(slips_per_page):
     font_scale = {
         4: {
             "title": "16px", "meta": "13px", "name": "18px", "detail": "13.8px", "booth": "12.5px",
-            "c_name": "17.5px", "c_party": "13.5px", "c_app": "11.5px",
-            "img_w": "95px", "img_h": "108px", "sym_w": "82px", "sym_h": "82px", "avatar": "60px"
+            "c_post": "14px", "c_name": "17.5px", "c_party": "13.5px", "c_app": "11.5px",
+            "img_w": "95px", "img_h": "100px", "sym_w": "82px", "sym_h": "82px", "avatar": "60px"
         },
         6: {
             "title": "15px", "meta": "12px", "name": "16.5px", "detail": "12.5px", "booth": "11px",
-            "c_name": "15px", "c_party": "12px", "c_app": "10px",
-            "img_w": "82px", "img_h": "94px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px"
+            "c_post": "12.5px", "c_name": "15px", "c_party": "12px", "c_app": "10px",
+            "img_w": "82px", "img_h": "86px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px"
         },
         8: {
             "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-            "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
-            "img_w": "68px", "img_h": "78px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
+            "c_post": "11.5px", "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
+            "img_w": "68px", "img_h": "72px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
         },
         10: {
             "title": "12px", "meta": "9.5px", "name": "13px", "detail": "9.8px", "booth": "8.8px",
-            "c_name": "11.5px", "c_party": "9.5px", "c_app": "7.8px",
-            "img_w": "56px", "img_h": "64px", "sym_w": "44px", "sym_h": "44px", "avatar": "34px"
+            "c_post": "10px", "c_name": "11.5px", "c_party": "9.5px", "c_app": "7.8px",
+            "img_w": "56px", "img_h": "58px", "sym_w": "44px", "sym_h": "44px", "avatar": "34px"
         },
         12: {
             "title": "10.5px", "meta": "8.8px", "name": "11.8px", "detail": "8.8px", "booth": "8px",
-            "c_name": "10.5px", "c_party": "8.5px", "c_app": "7.2px",
-            "img_w": "48px", "img_h": "56px", "sym_w": "38px", "sym_h": "38px", "avatar": "30px"
+            "c_post": "9px", "c_name": "10.5px", "c_party": "8.5px", "c_app": "7.2px",
+            "img_w": "48px", "img_h": "50px", "sym_w": "38px", "sym_h": "38px", "avatar": "30px"
         }
     }.get(slips_per_page, {
         "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-        "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
-        "img_w": "68px", "img_h": "78px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
+        "c_post": "11.5px", "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
+        "img_w": "68px", "img_h": "72px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
     })
 
     return grid_css, font_scale
 
-def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale):
+def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale, candidate_post="सरपंच"):
     photo_html = f'<img class="cand-photo" src="{candidate_photo}" alt="Candidate">' if candidate_photo else '<div class="cand-avatar">👤</div>'
     symbol_html = f'<div class="cand-symbol-frame"><img class="cand-symbol-img" src="{party_symbol}" alt="चुनाव चिन्ह"></div>' if party_symbol else ''
 
@@ -137,6 +137,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol,
             </div>
           </div>
           <div class="slip-right-box">
+            <div class="cand-post"><strong>{candidate_post} पद हेतु</strong></div>
             <div class="cand-photo-frame">
               {photo_html}
             </div>
@@ -256,13 +257,26 @@ def get_full_page_css(grid_css, font_scale):
       border: 1.8px solid #1a237e;
       border-radius: 6px;
       background: #fbfbfd;
-      padding: 4px 3px;
+      padding: 3px 2px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: space-around;
       text-align: center;
       box-sizing: border-box;
+    }}
+    .cand-post {{
+      font-size: {font_scale['c_post']};
+      font-weight: 900;
+      color: #b71c1c;
+      line-height: 1.15;
+      margin-bottom: 2px;
+      text-align: center;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.2px;
     }}
     .cand-photo-frame {{
       width: {font_scale['img_w']};
@@ -571,6 +585,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def handle_preview(self, payload):
+        candidate_post = payload.get("candidatePost", "सरपंच")
         candidate = payload.get("candidateName", "मनोज बाबेल")
         party = payload.get("partyName", "भारतीय जनता पार्टी (BJP)")
         appeal = payload.get("bottomMessage", "को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!")
@@ -583,7 +598,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         
         slips_html = ""
         for v in voters:
-            slips_html += render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale)
+            slips_html += render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale, candidate_post)
 
         css_text = get_full_page_css(grid_css, font_scale)
         html = f"""<!DOCTYPE html>
@@ -628,6 +643,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def handle_generate_pdf(self, payload):
+        candidate_post = payload.get("candidatePost", "सरपंच")
         candidate = payload.get("candidateName", "मनोज बाबेल")
         party = payload.get("partyName", "भारतीय जनता पार्टी (BJP)")
         appeal = payload.get("bottomMessage", "को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!")
@@ -640,7 +656,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
 
         self.generate_custom_pdf(
             global_session["activeVoters"], candidate, party, appeal,
-            slips_per_page, candidate_photo, party_symbol, dst_pdf
+            slips_per_page, candidate_photo, party_symbol, dst_pdf, candidate_post
         )
 
         import shutil
@@ -662,7 +678,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         }
         self.send_json_response(resp_obj)
 
-    def generate_custom_pdf(self, voters, candidate, party, appeal, slips_per_page, candidate_photo, party_symbol, out_pdf_path):
+    def generate_custom_pdf(self, voters, candidate, party, appeal, slips_per_page, candidate_photo, party_symbol, out_pdf_path, candidate_post="सरपंच"):
         temp_html = os.path.join(tempfile.gettempdir(), "voter_slips_render.html")
         chunk_size = slips_per_page
         chunks = [voters[i:i + chunk_size] for i in range(0, len(voters), chunk_size)]
@@ -678,7 +694,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         for chunk in chunks:
             slips_html = ""
             for v in chunk:
-                slips_html += render_slip_html(v, candidate, party, appeal, cand_photo_url, party_sym_url, font_scale)
+                slips_html += render_slip_html(v, candidate, party, appeal, cand_photo_url, party_sym_url, font_scale, candidate_post)
 
             if len(chunk) < chunk_size:
                 for _ in range(chunk_size - len(chunk)):

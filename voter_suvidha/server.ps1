@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # VOTER SUVIDHA - LOCAL WEB SERVER & API BACKEND
 # ==============================================================================
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -287,6 +287,7 @@ try {
             if ($rawUrl -eq "/api/preview") {
                 try {
                     $config = @{
+                        CandidatePost = if ($payload.candidatePost) { $payload.candidatePost } else { "सरपंच" }
                         CandidateName = $payload.candidateName
                         PartyName = $payload.partyName
                         BottomMessage = $payload.bottomMessage
@@ -377,6 +378,7 @@ try {
             if ($rawUrl -eq "/api/generate-pdf") {
                 try {
                     $config = @{
+                        CandidatePost = if ($payload.candidatePost) { $payload.candidatePost } else { "सरपंच" }
                         CandidateName = $payload.candidateName
                         PartyName = $payload.partyName
                         BottomMessage = $payload.bottomMessage

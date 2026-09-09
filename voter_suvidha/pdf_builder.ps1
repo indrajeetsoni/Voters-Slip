@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # VOTER SUVIDHA - PDF & HTML SLIP GENERATOR MODULE
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -17,11 +17,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "18px"
                 DetailSize = "13.8px"
                 BoothSize = "12.5px"
+                CPostSize = "14px"
                 CNameSize = "17.5px"
                 CPartySize = "13.5px"
                 CAppealSize = "11.5px"
                 ImgW = "95px"
-                ImgH = "108px"
+                ImgH = "100px"
                 SymW = "82px"
                 SymH = "82px"
                 AvatarSize = "60px"
@@ -38,11 +39,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "16.5px"
                 DetailSize = "12.5px"
                 BoothSize = "11px"
+                CPostSize = "12.5px"
                 CNameSize = "15px"
                 CPartySize = "12px"
                 CAppealSize = "10px"
                 ImgW = "82px"
-                ImgH = "94px"
+                ImgH = "86px"
                 SymW = "68px"
                 SymH = "68px"
                 AvatarSize = "52px"
@@ -59,11 +61,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "14.5px"
                 DetailSize = "11px"
                 BoothSize = "9.8px"
+                CPostSize = "11.5px"
                 CNameSize = "13px"
                 CPartySize = "10.5px"
                 CAppealSize = "8.8px"
                 ImgW = "68px"
-                ImgH = "78px"
+                ImgH = "72px"
                 SymW = "56px"
                 SymH = "56px"
                 AvatarSize = "42px"
@@ -80,11 +83,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "13px"
                 DetailSize = "9.8px"
                 BoothSize = "8.8px"
+                CPostSize = "10px"
                 CNameSize = "11.5px"
                 CPartySize = "9.5px"
                 CAppealSize = "7.8px"
                 ImgW = "56px"
-                ImgH = "64px"
+                ImgH = "58px"
                 SymW = "44px"
                 SymH = "44px"
                 AvatarSize = "34px"
@@ -101,11 +105,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "11.8px"
                 DetailSize = "8.8px"
                 BoothSize = "8px"
+                CPostSize = "9px"
                 CNameSize = "10.5px"
                 CPartySize = "8.5px"
                 CAppealSize = "7.2px"
                 ImgW = "48px"
-                ImgH = "56px"
+                ImgH = "50px"
                 SymW = "38px"
                 SymH = "38px"
                 AvatarSize = "30px"
@@ -122,11 +127,12 @@ function Get-LayoutConfig($slipsPerPage) {
                 NameSize = "14.5px"
                 DetailSize = "11px"
                 BoothSize = "9.8px"
+                CPostSize = "11.5px"
                 CNameSize = "13px"
                 CPartySize = "10.5px"
                 CAppealSize = "8.8px"
                 ImgW = "68px"
-                ImgH = "78px"
+                ImgH = "72px"
                 SymW = "56px"
                 SymH = "56px"
                 AvatarSize = "42px"
@@ -165,6 +171,7 @@ function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writ
     $slipsPerPage = if ($config.SlipsPerPage) { [int]$config.SlipsPerPage } else { 8 }
     $layout = Get-LayoutConfig $slipsPerPage
 
+    $candidatePost = if ($config.CandidatePost) { $config.CandidatePost } else { "सरपंच" }
     $candidate = if ($config.CandidateName) { $config.CandidateName } else { "मनोज बाबेल" }
     $party = if ($config.PartyName) { $config.PartyName } else { "भारतीय जनता पार्टी (BJP)" }
     $message = if ($config.BottomMessage) { $config.BottomMessage } else { "को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!" }
@@ -206,7 +213,8 @@ function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writ
     $writer.WriteLine('    .voter-line strong { color: #000; }')
     $writer.WriteLine("    .booth-line { font-size: $($layout.BoothSize); line-height: 1.22; border-top: 1.2px dashed #666; padding-top: 2px; margin-top: 1px; color: #000; background: #fafafa; border-radius: 2px; padding-left: 2px; }")
     $writer.WriteLine('    .booth-label { font-weight: 900; color: #000; }')
-    $writer.WriteLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; box-sizing: border-box; }')
+    $writer.WriteLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 3px 2px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; box-sizing: border-box; }')
+    $writer.WriteLine("    .cand-post { font-size: $($layout.CPostSize); font-weight: 900; color: #b71c1c; line-height: 1.15; margin-bottom: 2px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.2px; }")
     $writer.WriteLine("    .cand-photo-frame { width: $($layout.ImgW); height: $($layout.ImgH); border-radius: 4px; border: 1.2px solid #7986cb; background: #e8eaf6; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }")
     $writer.WriteLine('    .cand-photo { width: 100%; height: 100%; object-fit: cover; display: block; }')
     $writer.WriteLine("    .cand-avatar { font-size: $($layout.AvatarSize); line-height: 1; }")
@@ -238,6 +246,7 @@ function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writ
                 $epic = [System.Security.SecurityElement]::Escape("$($v.EPIC)")
                 $booth = [System.Security.SecurityElement]::Escape("$($v.Booth)")
 
+                $postHtml = [System.Security.SecurityElement]::Escape("$candidatePost")
                 $cHtml = [System.Security.SecurityElement]::Escape("$candidate")
                 $pHtml = [System.Security.SecurityElement]::Escape("$party")
                 $mHtml = [System.Security.SecurityElement]::Escape("$message")
@@ -263,6 +272,7 @@ function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writ
                 $writer.WriteLine("          <div class=`"booth-line`"><span class=`"booth-label`">&#2350;&#2340;&#2342;&#2366;&#2344; &#2325;&#2375;&#2306;&#2342;&#2381;&#2352; :</span> $booth</div>")
                 $writer.WriteLine('        </div>')
                 $writer.WriteLine('        <div class="slip-right-box">')
+                $writer.WriteLine("          <div class=`"cand-post`"><strong>$postHtml &#2346;&#2342; &#2361;&#2375;&#2340;&#2369;</strong></div>")
                 $writer.WriteLine("          <div class=`"cand-photo-frame`">$photoHtml</div>")
                 $writer.WriteLine("          <div class=`"cand-name`">$cHtml</div>")
                 if ($symbolHtml) {
@@ -271,7 +281,7 @@ function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writ
                 $writer.WriteLine("          <div class=`"cand-party`">($pHtml)</div>")
                 $writer.WriteLine("          <div class=`"cand-appeal`">$mHtml</div>")
                 $writer.WriteLine('        </div>')
-                $writer.WriteLine('      </div>')
+              $writer.WriteLine('      </div>')
 
                 $voterIdx++
             } else {
@@ -347,6 +357,7 @@ function Export-VoterSlipsPdf($votersList, $config, $outPdfPath) {
         throw "Neither Google Chrome nor Microsoft Edge was found for offline PDF generation."
     }
 
+    $outPdfPath = [System.IO.Path]::GetFullPath($outPdfPath)
     $tempHtml = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "voter_slips_print.html")
     
     # Stream HTML directly to disk - zero multi-gigabyte memory buffer

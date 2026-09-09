@@ -316,6 +316,7 @@ function setupPartySymbol() {
 }
 
 function getConfigurationPayload() {
+  const candidatePost = document.getElementById('candidatePostSelect')?.value || 'सरपंच';
   const candidateName = document.getElementById('candidateNameInput').value.trim() || 'मनोज बाबेल';
   const partyName = document.getElementById('partyNameInput').value.trim() || 'भारतीय जनता पार्टी (BJP)';
   const bottomMessage = document.getElementById('bottomMessageInput').value.trim() || 'को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!';
@@ -333,6 +334,7 @@ function getConfigurationPayload() {
   }
 
   return {
+    candidatePost,
     candidateName,
     partyName,
     bottomMessage,
@@ -394,7 +396,7 @@ function setupActionButtons() {
       const iframe = document.getElementById('previewIframe');
       iframe.srcdoc = html;
 
-      document.getElementById('previewInfo').innerText = `लेआउट: ${config.slipsPerPage} स्लिप्स प्रति A4 पृष्ठ | प्रत्याशी: ${config.candidateName}`;
+      document.getElementById('previewInfo').innerText = `लेआउट: ${config.slipsPerPage} स्लिप्स प्रति A4 पृष्ठ | पद: ${config.candidatePost} | प्रत्याशी: ${config.candidateName}`;
       document.getElementById('previewModal').style.display = 'flex';
     } catch (err) {
       alert('पूर्वावलोकन त्रुटि: ' + err.message);
