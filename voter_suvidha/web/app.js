@@ -120,6 +120,43 @@ function fileToBase64(file) {
   });
 }
 
+// Compress and resize image using HTML5 Canvas to prevent memory overflow
+function compressImage(file, maxWidth, maxHeight, quality = 0.85, mimeType = 'image/jpeg') {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const outMime = (file.type === 'image/png' && mimeType === 'image/png') ? 'image/png' : mimeType;
+        const dataUrl = canvas.toDataURL(outMime, quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('छवि लोड करने में असमर्थ।'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('फाइल पढ़ने में असमर्थ।'));
+    reader.readAsDataURL(file);
+  });
+}
+
+
 // Process Uploaded PDFs
 async function processUploadedFiles() {
   if (selectedFiles.length === 0) {
@@ -215,11 +252,19 @@ function setupCandidatePhoto() {
 
   photoInput.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const b64 = await fileToBase64(file);
-      candidatePhotoData = `data:${file.type || 'image/jpeg'};base64,${b64}`;
-      previewImg.src = candidatePhotoData;
-      previewBox.style.display = 'block';
+      try {
+        const file = e.target.files[0];
+        // Automatically compress candidate photo to max 400x500 at 85% JPEG to avoid out-of-memory errors
+        candidatePhotoData = await compressImage(file, 400, 500, 0.85, 'image/jpeg');
+        previewImg.src = candidatePhotoData;
+        previewBox.style.display = 'block';
+      } catch (err) {
+        console.error('Photo compression error:', err);
+        const b64 = await fileToBase64(e.target.files[0]);
+        candidatePhotoData = `data:${e.target.files[0].type || 'image/jpeg'};base64,${b64}`;
+        previewImg.src = candidatePhotoData;
+        previewBox.style.display = 'block';
+      }
     }
   });
 
@@ -243,11 +288,20 @@ function setupPartySymbol() {
 
   symbolInput.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const b64 = await fileToBase64(file);
-      partySymbolData = `data:${file.type || 'image/png'};base64,${b64}`;
-      previewImg.src = partySymbolData;
-      previewBox.style.display = 'block';
+      try {
+        const file = e.target.files[0];
+        // Compress party symbol to max 300x300, preserving PNG transparency if PNG
+        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        partySymbolData = await compressImage(file, 300, 300, 0.85, mime);
+        previewImg.src = partySymbolData;
+        previewBox.style.display = 'block';
+      } catch (err) {
+        console.error('Symbol compression error:', err);
+        const b64 = await fileToBase64(e.target.files[0]);
+        partySymbolData = `data:${e.target.files[0].type || 'image/png'};base64,${b64}`;
+        previewImg.src = partySymbolData;
+        previewBox.style.display = 'block';
+      }
     }
   });
 

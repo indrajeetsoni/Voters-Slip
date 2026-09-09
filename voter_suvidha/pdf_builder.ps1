@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # VOTER SUVIDHA - PDF & HTML SLIP GENERATOR MODULE
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -135,67 +135,94 @@ function Get-LayoutConfig($slipsPerPage) {
     }
 }
 
-function Generate-VoterSlipsHtml($votersList, $config, $isSampleOnly = $false) {
+function Save-Base64ImageToTempFile($base64DataUri, $prefix) {
+    if ([string]::IsNullOrWhiteSpace($base64DataUri)) { return $null }
+    if ($base64DataUri.StartsWith("data:image/")) {
+        $commaIdx = $base64DataUri.IndexOf(",")
+        if ($commaIdx -ge 0) {
+            $header = $base64DataUri.Substring(0, $commaIdx)
+            $rawB64 = $base64DataUri.Substring($commaIdx + 1)
+            $ext = ".jpg"
+            if ($header -like "*png*") { $ext = ".png" }
+            elseif ($header -like "*webp*") { $ext = ".webp" }
+            elseif ($header -like "*svg*") { $ext = ".svg" }
+            
+            $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "$prefix$ext")
+            try {
+                $bytes = [System.Convert]::FromBase64String($rawB64)
+                [System.IO.File]::WriteAllBytes($tempPath, $bytes)
+                return ([System.Uri]::new($tempPath)).AbsoluteUri
+            } catch {
+                Write-Host "Warning: Failed to save temp image: $_" -ForegroundColor Yellow
+                return $base64DataUri
+            }
+        }
+    }
+    return $base64DataUri
+}
+
+function Stream-VoterSlipsHtml($votersList, $config, [System.IO.TextWriter]$writer, $isSampleOnly = $false) {
     $slipsPerPage = if ($config.SlipsPerPage) { [int]$config.SlipsPerPage } else { 8 }
     $layout = Get-LayoutConfig $slipsPerPage
 
     $candidate = if ($config.CandidateName) { $config.CandidateName } else { "मनोज बाबेल" }
     $party = if ($config.PartyName) { $config.PartyName } else { "भारतीय जनता पार्टी (BJP)" }
     $message = if ($config.BottomMessage) { $config.BottomMessage } else { "को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!" }
-    $candidatePhoto = $config.CandidatePhoto
-    $partySymbol = $config.PartySymbol
+    
+    # Save base64 image data once to temp files to avoid duplicating megabytes across 1200 slips
+    $candidatePhotoUri = Save-Base64ImageToTempFile $config.CandidatePhoto "voter_cand_photo"
+    $partySymbolUri = Save-Base64ImageToTempFile $config.PartySymbol "voter_party_symbol"
 
-    $photoHtml = if ($candidatePhoto) { "<img class=`"cand-photo`" src=`"$candidatePhoto`" alt=`"Candidate`">" } else { '<div class="cand-avatar">&#128100;</div>' }
-    $symbolHtml = if ($partySymbol) { "<div class=`"cand-symbol-frame`"><img class=`"cand-symbol-img`" src=`"$partySymbol`" alt=`"चुनाव चिन्ह`"></div>" } else { "" }
+    $photoHtml = if ($candidatePhotoUri) { "<img class=`"cand-photo`" src=`"$candidatePhotoUri`" alt=`"Candidate`">" } else { '<div class="cand-avatar">&#128100;</div>' }
+    $symbolHtml = if ($partySymbolUri) { "<div class=`"cand-symbol-frame`"><img class=`"cand-symbol-img`" src=`"$partySymbolUri`" alt=`"चुनाव चिन्ह`"></div>" } else { "" }
 
     $totalVoters = $votersList.Count
     $sliceCount = if ($isSampleOnly) { [Math]::Min($slipsPerPage, $totalVoters) } else { $totalVoters }
     $pageCount = [Math]::Ceiling($sliceCount / $slipsPerPage)
 
-    $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine('<!DOCTYPE html>')
-    [void]$sb.AppendLine('<html lang="hi">')
-    [void]$sb.AppendLine('<head>')
-    [void]$sb.AppendLine('  <meta charset="UTF-8">')
-    [void]$sb.AppendLine('  <title>&#2357;&#2379;&#2335;&#2352; &#2360;&#2369;&#2357;&#2367;&#2343;&#2366; &#2360;&#2381;&#2354;&#2367;&#2346;</title>')
-    [void]$sb.AppendLine('  <style>')
-    [void]$sb.AppendLine('    @page { size: A4 portrait; margin: 0; }')
-    [void]$sb.AppendLine('    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }')
-    [void]$sb.AppendLine('    body { font-family: "Nirmala UI", "Mangal", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; }')
-    [void]$sb.AppendLine("    .a4-page { width: 210mm; height: 297mm; padding: $($layout.PagePadding); page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }")
-    [void]$sb.AppendLine("    .slips-grid { display: grid; grid-template-columns: repeat($($layout.Cols), 1fr); grid-template-rows: repeat($($layout.Rows), 1fr); gap: $($layout.GridGap); width: 100%; height: 100%; }")
-    [void]$sb.AppendLine('    .slip { border: 1.5px solid #111; border-radius: 5px; padding: 4px 5px; display: flex; flex-direction: row; justify-content: space-between; align-items: stretch; gap: 6px; background: #fff; overflow: hidden; }')
-    [void]$sb.AppendLine('    .slip-left { width: 63%; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }')
-    [void]$sb.AppendLine('    .slip-header-block { border-bottom: 1.2px dashed #444; padding-bottom: 2px; margin-bottom: 1.5px; }')
-    [void]$sb.AppendLine("    .slip-title { text-align: center; font-weight: 900; font-size: $($layout.TitleSize); letter-spacing: 0.6px; color: #000; margin-bottom: 1.5px; }")
-    [void]$sb.AppendLine("    .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: $($layout.MetaSize); margin-bottom: 1.5px; }")
-    [void]$sb.AppendLine('    .meta-row-serial { display: flex; justify-content: flex-start; align-items: center; }')
-    [void]$sb.AppendLine('    .badge-item { color: #111; }')
-    [void]$sb.AppendLine('    .badge-item strong { color: #000; }')
-    [void]$sb.AppendLine("    .serial-badge { background: #f4f5f7; border: 1.3px solid #111; border-radius: 3px; padding: 0.5px 5px; font-size: $($layout.MetaSize); font-weight: 800; display: inline-block; }")
-    [void]$sb.AppendLine('    .voter-body { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; padding: 1px 0; }')
-    [void]$sb.AppendLine("    .voter-line { font-size: $($layout.DetailSize); color: #111; line-height: 1.25; }")
-    [void]$sb.AppendLine("    .voter-name { font-size: $($layout.NameSize); font-weight: 900; color: #000; }")
-    [void]$sb.AppendLine('    .voter-line strong { color: #000; }')
-    [void]$sb.AppendLine("    .booth-line { font-size: $($layout.BoothSize); line-height: 1.22; border-top: 1.2px dashed #666; padding-top: 2px; margin-top: 1px; color: #000; background: #fafafa; border-radius: 2px; padding-left: 2px; }")
-    [void]$sb.AppendLine('    .booth-label { font-weight: 900; color: #000; }')
-    [void]$sb.AppendLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; box-sizing: border-box; }')
-    [void]$sb.AppendLine("    .cand-photo-frame { width: $($layout.ImgW); height: $($layout.ImgH); border-radius: 4px; border: 1.2px solid #7986cb; background: #e8eaf6; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }")
-    [void]$sb.AppendLine('    .cand-photo { width: 100%; height: 100%; object-fit: cover; display: block; }')
-    [void]$sb.AppendLine("    .cand-avatar { font-size: $($layout.AvatarSize); line-height: 1; }")
-    [void]$sb.AppendLine("    .cand-name { font-size: $($layout.CNameSize); font-weight: 900; color: #0d47a1; line-height: 1.15; margin: 1px 0; }")
-    [void]$sb.AppendLine("    .cand-symbol-frame { width: $($layout.SymW); height: $($layout.SymH); display: flex; align-items: center; justify-content: center; margin: 1px 0; flex-shrink: 0; }")
-    [void]$sb.AppendLine('    .cand-symbol-img { width: 100%; height: 100%; object-fit: contain; }')
-    [void]$sb.AppendLine("    .cand-party { font-size: $($layout.CPartySize); font-weight: 800; color: #2e7d32; line-height: 1.15; }")
-    [void]$sb.AppendLine("    .cand-appeal { font-size: $($layout.CAppealSize); font-weight: 800; color: #b71c1c; line-height: 1.15; margin-top: 1px; }")
-    [void]$sb.AppendLine('  </style>')
-    [void]$sb.AppendLine('</head>')
-    [void]$sb.AppendLine('<body>')
+    $writer.WriteLine('<!DOCTYPE html>')
+    $writer.WriteLine('<html lang="hi">')
+    $writer.WriteLine('<head>')
+    $writer.WriteLine('  <meta charset="UTF-8">')
+    $writer.WriteLine('  <title>&#2357;&#2379;&#2335;&#2352; &#2360;&#2369;&#2357;&#2367;&#2343;&#2366; &#2360;&#2381;&#2354;&#2367;&#2346;</title>')
+    $writer.WriteLine('  <style>')
+    $writer.WriteLine('    @page { size: A4 portrait; margin: 0; }')
+    $writer.WriteLine('    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }')
+    $writer.WriteLine('    body { font-family: "Nirmala UI", "Mangal", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; }')
+    $writer.WriteLine("    .a4-page { width: 210mm; height: 297mm; padding: $($layout.PagePadding); page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }")
+    $writer.WriteLine("    .slips-grid { display: grid; grid-template-columns: repeat($($layout.Cols), 1fr); grid-template-rows: repeat($($layout.Rows), 1fr); gap: $($layout.GridGap); width: 100%; height: 100%; }")
+    $writer.WriteLine('    .slip { border: 1.5px solid #111; border-radius: 5px; padding: 4px 5px; display: flex; flex-direction: row; justify-content: space-between; align-items: stretch; gap: 6px; background: #fff; overflow: hidden; }')
+    $writer.WriteLine('    .slip-left { width: 63%; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }')
+    $writer.WriteLine('    .slip-header-block { border-bottom: 1.2px dashed #444; padding-bottom: 2px; margin-bottom: 1.5px; }')
+    $writer.WriteLine("    .slip-title { text-align: center; font-weight: 900; font-size: $($layout.TitleSize); letter-spacing: 0.6px; color: #000; margin-bottom: 1.5px; }")
+    $writer.WriteLine("    .meta-row { display: flex; justify-content: space-between; align-items: center; font-size: $($layout.MetaSize); margin-bottom: 1.5px; }")
+    $writer.WriteLine('    .meta-row-serial { display: flex; justify-content: flex-start; align-items: center; }')
+    $writer.WriteLine('    .badge-item { color: #111; }')
+    $writer.WriteLine('    .badge-item strong { color: #000; }')
+    $writer.WriteLine("    .serial-badge { background: #f4f5f7; border: 1.3px solid #111; border-radius: 3px; padding: 0.5px 5px; font-size: $($layout.MetaSize); font-weight: 800; display: inline-block; }")
+    $writer.WriteLine('    .voter-body { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; padding: 1px 0; }')
+    $writer.WriteLine("    .voter-line { font-size: $($layout.DetailSize); color: #111; line-height: 1.25; }")
+    $writer.WriteLine("    .voter-name { font-size: $($layout.NameSize); font-weight: 900; color: #000; }")
+    $writer.WriteLine('    .voter-line strong { color: #000; }')
+    $writer.WriteLine("    .booth-line { font-size: $($layout.BoothSize); line-height: 1.22; border-top: 1.2px dashed #666; padding-top: 2px; margin-top: 1px; color: #000; background: #fafafa; border-radius: 2px; padding-left: 2px; }")
+    $writer.WriteLine('    .booth-label { font-weight: 900; color: #000; }')
+    $writer.WriteLine('    .slip-right-box { width: 36%; min-width: 36%; max-width: 37%; border: 1.8px solid #1a237e; border-radius: 6px; background: #fbfbfd; padding: 4px 3px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; box-sizing: border-box; }')
+    $writer.WriteLine("    .cand-photo-frame { width: $($layout.ImgW); height: $($layout.ImgH); border-radius: 4px; border: 1.2px solid #7986cb; background: #e8eaf6; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }")
+    $writer.WriteLine('    .cand-photo { width: 100%; height: 100%; object-fit: cover; display: block; }')
+    $writer.WriteLine("    .cand-avatar { font-size: $($layout.AvatarSize); line-height: 1; }")
+    $writer.WriteLine("    .cand-name { font-size: $($layout.CNameSize); font-weight: 900; color: #0d47a1; line-height: 1.15; margin: 1px 0; }")
+    $writer.WriteLine("    .cand-symbol-frame { width: $($layout.SymW); height: $($layout.SymH); display: flex; align-items: center; justify-content: center; margin: 1px 0; flex-shrink: 0; }")
+    $writer.WriteLine('    .cand-symbol-img { width: 100%; height: 100%; object-fit: contain; }')
+    $writer.WriteLine("    .cand-party { font-size: $($layout.CPartySize); font-weight: 800; color: #2e7d32; line-height: 1.15; }")
+    $writer.WriteLine("    .cand-appeal { font-size: $($layout.CAppealSize); font-weight: 800; color: #b71c1c; line-height: 1.15; margin-top: 1px; }")
+    $writer.WriteLine('  </style>')
+    $writer.WriteLine('</head>')
+    $writer.WriteLine('<body>')
 
     $voterIdx = 0
     for ($p = 0; $p -lt $pageCount; $p++) {
-        [void]$sb.AppendLine('  <div class="a4-page">')
-        [void]$sb.AppendLine('    <div class="slips-grid">')
+        $writer.WriteLine('  <div class="a4-page">')
+        $writer.WriteLine('    <div class="slips-grid">')
 
         for ($s = 0; $s -lt $slipsPerPage; $s++) {
             if ($voterIdx -lt $sliceCount) {
@@ -215,81 +242,128 @@ function Generate-VoterSlipsHtml($votersList, $config, $isSampleOnly = $false) {
                 $pHtml = [System.Security.SecurityElement]::Escape("$party")
                 $mHtml = [System.Security.SecurityElement]::Escape("$message")
 
-                [void]$sb.AppendLine('      <div class="slip">')
-                [void]$sb.AppendLine('        <div class="slip-left">')
-                [void]$sb.AppendLine('          <div class="slip-header-block">')
-                [void]$sb.AppendLine('            <div class="slip-title">&#2357;&#2379;&#2335;&#2352; &#2360;&#2369;&#2357;&#2367;&#2343;&#2366; &#2360;&#2381;&#2354;&#2367;&#2346;</div>')
-                [void]$sb.AppendLine('            <div class="meta-row">')
-                [void]$sb.AppendLine("              <span class=`"badge-item`">&#2357;&#2366;&#2352;&#2381;&#2337; &#2344;&#2306; : <strong>[ $w ]</strong></span>")
-                [void]$sb.AppendLine("              <span class=`"badge-item`">&#2349;&#2366;&#2327; : <strong>[ $part ]</strong></span>")
-                [void]$sb.AppendLine('            </div>')
-                [void]$sb.AppendLine('            <div class="meta-row-serial">')
-                [void]$sb.AppendLine("              <span class=`"badge-item serial-badge`">&#2325;&#2381;&#2352;&#2350; &#2360;&#2306;&#2326;&#2381;&#2351;&#2366; : <strong>[ $sn ]</strong></span>")
-                [void]$sb.AppendLine('            </div>')
-                [void]$sb.AppendLine('          </div>')
-                [void]$sb.AppendLine('          <div class="voter-body">')
-                [void]$sb.AppendLine("            <div class=`"voter-line voter-name`">&#2350;&#2340;&#2342;&#2366;&#2340;&#2366; &#2325;&#2366; &#2344;&#2366;&#2350; : <strong>$nm</strong></div>")
-                [void]$sb.AppendLine("            <div class=`"voter-line`">&#2346;&#2367;&#2340;&#2366;/&#2346;&#2340;&#2367; &#2325;&#2366; &#2344;&#2366;&#2350; : <span>$rel</span></div>")
-                [void]$sb.AppendLine("            <div class=`"voter-line`">&#2350;&#2325;&#2366;&#2344; &#2344;&#2306;. : <strong>$h</strong> &nbsp;|&nbsp; &#2313;&#2350;&#2381;&#2352; : <strong>$age</strong> &nbsp;|&nbsp; &#2354;&#2367;&#2306;&#2327; : <strong>$g</strong></div>")
-                [void]$sb.AppendLine("            <div class=`"voter-line`">&#2346;&#2361;&#2331;&#2366;&#2344; &#2346;&#2340;&#2381;&#2352; &#2325;&#2381;&#2352;. (EPIC) : <strong>$epic</strong></div>")
-                [void]$sb.AppendLine('          </div>')
-                [void]$sb.AppendLine("          <div class=`"booth-line`"><span class=`"booth-label`">&#2350;&#2340;&#2342;&#2366;&#2344; &#2325;&#2375;&#2306;&#2342;&#2381;&#2352; :</span> $booth</div>")
-                [void]$sb.AppendLine('        </div>')
-                [void]$sb.AppendLine('        <div class="slip-right-box">')
-                [void]$sb.AppendLine("          <div class=`"cand-photo-frame`">$photoHtml</div>")
-                [void]$sb.AppendLine("          <div class=`"cand-name`">$cHtml</div>")
+                $writer.WriteLine('      <div class="slip">')
+                $writer.WriteLine('        <div class="slip-left">')
+                $writer.WriteLine('          <div class="slip-header-block">')
+                $writer.WriteLine('            <div class="slip-title">&#2357;&#2379;&#2335;&#2352; &#2360;&#2369;&#2357;&#2367;&#2343;&#2366; &#2360;&#2381;&#2354;&#2367;&#2346;</div>')
+                $writer.WriteLine('            <div class="meta-row">')
+                $writer.WriteLine("              <span class=`"badge-item`">&#2357;&#2366;&#2352;&#2381;&#2337; &#2344;&#2306; : <strong>[ $w ]</strong></span>")
+                $writer.WriteLine("              <span class=`"badge-item`">&#2349;&#2366;&#2327; : <strong>[ $part ]</strong></span>")
+                $writer.WriteLine('            </div>')
+                $writer.WriteLine('            <div class="meta-row-serial">')
+                $writer.WriteLine("              <span class=`"badge-item serial-badge`">&#2325;&#2381;&#2352;&#2350; &#2360;&#2306;&#2326;&#2381;&#2351;&#2366; : <strong>[ $sn ]</strong></span>")
+                $writer.WriteLine('            </div>')
+                $writer.WriteLine('          </div>')
+                $writer.WriteLine('          <div class="voter-body">')
+                $writer.WriteLine("            <div class=`"voter-line voter-name`">&#2350;&#2340;&#2342;&#2366;&#2340;&#2366; &#2325;&#2366; &#2344;&#2366;&#2350; : <strong>$nm</strong></div>")
+                $writer.WriteLine("            <div class=`"voter-line`">&#2346;&#2367;&#2340;&#2366;/&#2346;&#2340;&#2367; &#2325;&#2366; &#2344;&#2366;&#2350; : <span>$rel</span></div>")
+                $writer.WriteLine("            <div class=`"voter-line`">&#2350;&#2325;&#2366;&#2344; &#2344;&#2306;. : <strong>$h</strong> &nbsp;|&nbsp; &#2313;&#2350;&#2381;&#2352; : <strong>$age</strong> &nbsp;|&nbsp; &#2354;&#2367;&#2306;&#2327; : <strong>$g</strong></div>")
+                $writer.WriteLine("            <div class=`"voter-line`">&#2346;&#2361;&#2331;&#2366;&#2344; &#2346;&#2340;&#2381;&#2352; &#2325;&#2381;&#2352;. (EPIC) : <strong>$epic</strong></div>")
+                $writer.WriteLine('          </div>')
+                $writer.WriteLine("          <div class=`"booth-line`"><span class=`"booth-label`">&#2350;&#2340;&#2342;&#2366;&#2344; &#2325;&#2375;&#2306;&#2342;&#2381;&#2352; :</span> $booth</div>")
+                $writer.WriteLine('        </div>')
+                $writer.WriteLine('        <div class="slip-right-box">')
+                $writer.WriteLine("          <div class=`"cand-photo-frame`">$photoHtml</div>")
+                $writer.WriteLine("          <div class=`"cand-name`">$cHtml</div>")
                 if ($symbolHtml) {
-                    [void]$sb.AppendLine("          $symbolHtml")
+                    $writer.WriteLine("          $symbolHtml")
                 }
-                [void]$sb.AppendLine("          <div class=`"cand-party`">($pHtml)</div>")
-                [void]$sb.AppendLine("          <div class=`"cand-appeal`">$mHtml</div>")
-                [void]$sb.AppendLine('        </div>')
-                [void]$sb.AppendLine('      </div>')
+                $writer.WriteLine("          <div class=`"cand-party`">($pHtml)</div>")
+                $writer.WriteLine("          <div class=`"cand-appeal`">$mHtml</div>")
+                $writer.WriteLine('        </div>')
+                $writer.WriteLine('      </div>')
 
                 $voterIdx++
             } else {
-                [void]$sb.AppendLine('      <div class="slip" style="visibility:hidden;"></div>')
+                $writer.WriteLine('      <div class="slip" style="visibility:hidden;"></div>')
             }
         }
 
-        [void]$sb.AppendLine('    </div>')
-        [void]$sb.AppendLine('  </div>')
+        $writer.WriteLine('    </div>')
+        $writer.WriteLine('  </div>')
     }
 
-    [void]$sb.AppendLine('</body>')
-    [void]$sb.AppendLine('</html>')
+    $writer.WriteLine('</body>')
+    $writer.WriteLine('</html>')
+}
 
-    return $sb.ToString()
+function Generate-VoterSlipsHtml($votersList, $config, $isSampleOnly = $false) {
+    $sw = New-Object System.IO.StringWriter
+    Stream-VoterSlipsHtml $votersList $config $sw $isSampleOnly
+    return $sw.ToString()
+}
+
+function Get-InstalledBrowserPath {
+    # 1. Check Windows Registry App Paths (most accurate across all Windows installations)
+    $regKeys = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"
+    )
+    foreach ($rk in $regKeys) {
+        if (Test-Path $rk) {
+            $val = (Get-ItemProperty -Path $rk -ErrorAction SilentlyContinue).'(default)'
+            if ($val -and (Test-Path $val)) { return $val }
+        }
+    }
+
+    # 2. Check standard file system paths (32-bit & 64-bit)
+    $progFiles = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFiles)
+    $progFilesX86 = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFilesX86)
+    $localAppData = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+
+    $candidates = @(
+        "$progFiles\Google\Chrome\Application\chrome.exe",
+        "$progFilesX86\Google\Chrome\Application\chrome.exe",
+        "$localAppData\Google\Chrome\Application\chrome.exe",
+        "$progFiles\Microsoft\Edge\Application\msedge.exe",
+        "$progFilesX86\Microsoft\Edge\Application\msedge.exe",
+        "$localAppData\Microsoft\Edge\Application\msedge.exe",
+        "C:\Program Files\Google\Chrome\Application\chrome.exe",
+        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        "C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+    )
+    foreach ($cand in $candidates) {
+        if ($cand -and (Test-Path $cand)) {
+            return $cand
+        }
+    }
+
+    # 3. Check PATH environment variable
+    $pathCmd = Get-Command "chrome.exe", "msedge.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pathCmd -and $pathCmd.Source) {
+        return $pathCmd.Source
+    }
+
+    return $null
 }
 
 function Export-VoterSlipsPdf($votersList, $config, $outPdfPath) {
-    $browserCandidates = @(
-        "C:\Program Files\Google\Chrome\Application\chrome.exe",
-        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
-        "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-        "C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe"
-    )
-    $browserExe = $null
-    foreach ($cand in $browserCandidates) {
-        if ($cand -and (Test-Path $cand)) {
-            $browserExe = $cand
-            break
-        }
-    }
+    $browserExe = Get-InstalledBrowserPath
 
     if (-not $browserExe) {
         throw "Neither Google Chrome nor Microsoft Edge was found for offline PDF generation."
     }
 
     $tempHtml = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "voter_slips_print.html")
-    $htmlContent = Generate-VoterSlipsHtml $votersList $config $false
-    [System.IO.File]::WriteAllText($tempHtml, $htmlContent, [System.Text.Encoding]::UTF8)
+    
+    # Stream HTML directly to disk - zero multi-gigabyte memory buffer
+    $fs = [System.IO.File]::Create($tempHtml)
+    $writer = New-Object System.IO.StreamWriter($fs, [System.Text.Encoding]::UTF8)
+    try {
+        Stream-VoterSlipsHtml $votersList $config $writer $false
+    } finally {
+        $writer.Flush()
+        $writer.Close()
+        $fs.Close()
+    }
 
     $procArgs = @(
         "--headless",
         "--disable-gpu",
+        "--allow-file-access-from-files",
         "--no-pdf-header-footer",
         "--print-to-pdf=`"$outPdfPath`"",
         "`"$tempHtml`""
@@ -304,3 +378,4 @@ function Export-VoterSlipsPdf($votersList, $config, $outPdfPath) {
         Remove-Item $tempHtml -Force -ErrorAction SilentlyContinue
     }
 }
+

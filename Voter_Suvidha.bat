@@ -21,7 +21,13 @@ if %ERRORLEVEL% EQU 0 (
     if %ERRORLEVEL% EQU 0 (
         start "" python "%SERVER_PY%"
     ) else (
-        start "" powershell.exe -ExecutionPolicy Bypass -NoExit -File "%SERVER_PS1%"
+        set "PS_EXE=powershell.exe"
+        if exist "%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe" (
+            set "PS_EXE=%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
+        ) else if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (
+            set "PS_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+        )
+        start "" "%PS_EXE%" -ExecutionPolicy Bypass -NoExit -File "%SERVER_PS1%"
     )
 )
 

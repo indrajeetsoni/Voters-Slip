@@ -5,19 +5,25 @@ import json
 import os
 import sys
 import subprocess
+import tempfile
+import base64
+from urllib.parse import quote
 import openpyxl
 
 PORT = 5000
-WORKSPACE_DIR = r"C:\Users\Indrajeet\Documents\antigravity\serene-nobel"
-DOWNLOADS_DIR = os.path.join(WORKSPACE_DIR, "voter_suvidha", "downloads")
-WEB_DIR = os.path.join(WORKSPACE_DIR, "voter_suvidha", "web")
-UPLOADS_DIR = os.path.join(WORKSPACE_DIR, "voter_suvidha", "uploads")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WORKSPACE_DIR = os.path.dirname(SCRIPT_DIR)
+DOWNLOADS_DIR = os.path.join(SCRIPT_DIR, "downloads")
+WEB_DIR = os.path.join(SCRIPT_DIR, "web")
+UPLOADS_DIR = os.path.join(SCRIPT_DIR, "uploads")
 
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # Load master voter data from verified Excel
 excel_path = os.path.join(WORKSPACE_DIR, "beawar_ward_001_part_001.xlsx")
+if not os.path.exists(excel_path):
+    excel_path = os.path.join(SCRIPT_DIR, "template.xlsx")
 wb = openpyxl.load_workbook(excel_path, read_only=True)
 ws = wb.active
 
@@ -316,6 +322,55 @@ def get_full_page_css(grid_css, font_scale):
     }}
     """
 
+def find_browser():
+    candidates = [
+        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    ]
+    for c in candidates:
+        if c and os.path.isfile(c):
+            return c
+    import shutil
+    for name in ["chrome", "msedge", "google-chrome", "chromium"]:
+        p = shutil.which(name)
+        if p:
+            return p
+    return None
+
+def save_base64_image_to_temp_file(data_uri, prefix):
+    if not data_uri or not isinstance(data_uri, str):
+        return ""
+    if data_uri.startswith("data:image/"):
+        try:
+            comma_idx = data_uri.find(",")
+            if comma_idx != -1:
+                header = data_uri[:comma_idx]
+                raw_b64 = data_uri[comma_idx + 1:]
+                ext = ".jpg"
+                if "png" in header:
+                    ext = ".png"
+                elif "webp" in header:
+                    ext = ".webp"
+                elif "svg" in header:
+                    ext = ".svg"
+                temp_path = os.path.join(tempfile.gettempdir(), f"{prefix}{ext}")
+                with open(temp_path, "wb") as f:
+                    f.write(base64.b64decode(raw_b64))
+                norm_path = os.path.abspath(temp_path).replace("\\", "/")
+                return f"file:///{quote(norm_path, safe=':/')}"
+        except Exception as e:
+            print(f"Warning: Failed to cache temp image: {e}")
+            return data_uri
+    return data_uri
+
 class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -608,18 +663,22 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def generate_custom_pdf(self, voters, candidate, party, appeal, slips_per_page, candidate_photo, party_symbol, out_pdf_path):
-        temp_html = r"C:\Users\Indrajeet\.gemini\antigravity\brain\db5339aa-1fc6-4920-b97b-866fe8a58ed9\scratch\full_slips_render.html"
+        temp_html = os.path.join(tempfile.gettempdir(), "voter_slips_render.html")
         chunk_size = slips_per_page
         chunks = [voters[i:i + chunk_size] for i in range(0, len(voters), chunk_size)]
 
         grid_css, font_scale = get_grid_and_font(slips_per_page)
         css_text = get_full_page_css(grid_css, font_scale)
 
+        # Cache base64 images once to temp file to save memory
+        cand_photo_url = save_base64_image_to_temp_file(candidate_photo, "voter_cand_photo")
+        party_sym_url = save_base64_image_to_temp_file(party_symbol, "voter_party_symbol")
+
         html_body = ""
         for chunk in chunks:
             slips_html = ""
             for v in chunk:
-                slips_html += render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale)
+                slips_html += render_slip_html(v, candidate, party, appeal, cand_photo_url, party_sym_url, font_scale)
 
             if len(chunk) < chunk_size:
                 for _ in range(chunk_size - len(chunk)):
@@ -650,16 +709,22 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         with open(temp_html, "w", encoding="utf-8") as f:
             f.write(full_doc)
 
-        edge_exe = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        browser_exe = find_browser()
+        if not browser_exe:
+            raise RuntimeError("Neither Google Chrome nor Microsoft Edge was found for offline PDF generation.")
+
         cmd = [
-            edge_exe,
+            browser_exe,
             "--headless",
             "--disable-gpu",
+            "--allow-file-access-from-files",
             "--no-pdf-header-footer",
             f"--print-to-pdf={out_pdf_path}",
             temp_html
         ]
-        subprocess.run(cmd, capture_output=True, text=True)
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0 and not os.path.exists(out_pdf_path):
+            raise RuntimeError(f"Browser PDF printing failed: {res.stderr}")
         print(f"Generated PDF: {out_pdf_path}")
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
