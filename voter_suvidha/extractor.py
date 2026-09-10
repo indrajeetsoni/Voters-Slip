@@ -410,6 +410,22 @@ def clean_hindi_name(raw):
     s = re.sub(r'लरबबररम\b', 'लाबूराम', s)
     s = re.sub(r'लरबब\b', 'लाबू', s)
     s = re.sub(r'कनचरल\b', 'कगुडी', s)
+    s = re.sub(r'उच\s*छब\b|उच्च\s*छब\b|उचछब\b', 'उच्छब', s)
+    s = re.sub(r'संतोषकंवर\b', 'संतोष कंवर', s)
+    s = re.sub(r'रघचरलर\b', 'रघुवीर', s)
+    s = re.sub(r'ररनब\b', 'रानू', s)
+    s = re.sub(r'मपग\b|मपघ\b', 'मग', s)
+    s = re.sub(r'धनच\b', 'धपु', s)
+    s = re.sub(r'अनच\b', 'अनु', s)
+    s = re.sub(r'कमरल\b', 'कमली', s)
+    s = re.sub(r'धरमर\b', 'धरमा', s)
+    s = re.sub(r'गयदरररम\b', 'गोदाराम', s)
+    s = re.sub(r'भलकर\b|भलखर\b', 'भीका', s)
+    s = re.sub(r'सयनरगचजर\b', 'सोनागुर्जर', s)
+    s = re.sub(r'रपकमरई\b', 'रूकमई', s)
+    s = re.sub(r'सयनरररम\b', 'सोनाराम', s)
+    s = re.sub(r'भलकरररम\b', 'भीकाराम', s)
+    s = re.sub(r'बरदरररम\b', 'बादरराम', s)
 
     if s in WORD_MAP:
         return WORD_MAP[s]
@@ -461,6 +477,28 @@ def extract_pdf_elector_data(pdf_path):
 
     p1 = doc[0]
     p1_text = p1.get_text()
+
+    # 0. Gram Panchayat Name
+    gram_panchayat = ""
+    for l in p1_text.splitlines():
+        m_gp = re.search(r'(?:गरमपपचरजत|ग्राम\s*पंचायत|गरम\s*पपचरजत)\s*:\s*([^\n\r]+)', l)
+        if m_gp:
+            raw_gp = m_gp.group(1).strip()
+            raw_gp = re.sub(r'[:\s]+$', '', raw_gp).strip()
+            gram_panchayat = clean_hindi_name(raw_gp)
+            break
+    if not gram_panchayat:
+        fn_lower = os.path.basename(pdf_path).lower()
+        if "ghorawar" in fn_lower or "घोड़ावड़" in fn_lower or "घोडावड" in fn_lower:
+            gram_panchayat = "घोड़ावड़"
+        elif "bassi" in fn_lower or "बस्सी" in fn_lower:
+            gram_panchayat = "बस्सी"
+        elif "baloonda" in fn_lower or "बलूनदा" in fn_lower:
+            gram_panchayat = "बलूनदा"
+        elif "jawaja" in fn_lower or "जवाजा" in fn_lower:
+            gram_panchayat = "जवाजा"
+        elif "badakhera" in fn_lower or "बड़ाखेड़ा" in fn_lower:
+            gram_panchayat = "बड़ाखेड़ा"
 
     # 1. Ward Number
     ward = "1"
@@ -619,7 +657,8 @@ def extract_pdf_elector_data(pdf_path):
                         "HouseNo": clean_hindi_name(house) if house else "-",
                         "Age": str(age),
                         "Gender": gender,
-                        "EPIC": epic
+                        "EPIC": epic,
+                        "GramPanchayat": gram_panchayat
                     }
                 i += 3
             else:
@@ -638,6 +677,7 @@ def extract_pdf_elector_data(pdf_path):
 
     return {
         "fileName": os.path.basename(pdf_path),
+        "gramPanchayat": gram_panchayat,
         "ward": str(ward),
         "part": "1",
         "booth": booth,
@@ -652,22 +692,24 @@ def export_voters_to_excel(voters, out_excel_path):
     ws = wb.active
     ws.title = "मतदाता सूची (Master Voter List)"
 
+    # Exact 12 columns requested by user
     headers = [
-        "क्रम संख्या", "वार्ड नं.", "भाग नं.", "मतदान केंद्र का नाम",
-        "मतदाता का नाम", "संबंध का प्रकार", "पिता/पति का नाम",
-        "मकान नं.", "आयु", "लिंग", "पहचान पत्र क्र. (EPIC)"
+        "Sr No", "वार्ड संख्या", "भाग संख्या", "मतदान केंद्र की संख्या व पता",
+        "क्रम संख्या", "निर्वाचक का नाम", "पिता/पति का नाम",
+        "मकान संख्या", "आयु", "लिंग", "EPIC No", "ग्राम पंचायत"
     ]
     ws.append(headers)
 
-    header_fill = PatternFill(start_color="1A237E", end_color="1A237E", fill_type="solid")
-    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    # Soft blue/lavender accent fill (#D9E1F2) as shown in template
+    header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="000000")
     center_align = Alignment(horizontal="center", vertical="center")
     left_align = Alignment(horizontal="left", vertical="center")
     thin_border = Border(
-        left=Side(style="thin", color="CCCCCC"),
-        right=Side(style="thin", color="CCCCCC"),
-        top=Side(style="thin", color="CCCCCC"),
-        bottom=Side(style="thin", color="CCCCCC")
+        left=Side(style="thin", color="BFBFBF"),
+        right=Side(style="thin", color="BFBFBF"),
+        top=Side(style="thin", color="BFBFBF"),
+        bottom=Side(style="thin", color="BFBFBF")
     )
 
     for col_idx, col_name in enumerate(headers, 1):
@@ -676,34 +718,52 @@ def export_voters_to_excel(voters, out_excel_path):
         cell.font = header_font
         cell.alignment = center_align
 
-    for v in voters:
+    ws.row_dimensions[1].height = 26
+
+    for idx, v in enumerate(voters, 1):
         row = [
-            v.get("SerialNo", ""),
+            idx,
             v.get("Ward", "1"),
             v.get("Part", "1"),
             v.get("Booth", ""),
+            v.get("SerialNo", ""),
             v.get("VoterName", ""),
-            v.get("RelativeType", "पिता"),
             v.get("RelativeName", ""),
             v.get("HouseNo", "-"),
             v.get("Age", ""),
             v.get("Gender", ""),
-            v.get("EPIC", "")
+            v.get("EPIC", ""),
+            v.get("GramPanchayat", "")
         ]
         ws.append(row)
 
-    # Style rows
+    # Style data rows
     for row_idx in range(2, len(voters) + 2):
-        for col_idx in range(1, 12):
+        ws.row_dimensions[row_idx].height = 20
+        for col_idx in range(1, 13):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.border = thin_border
-            if col_idx in [1, 2, 3, 6, 8, 9, 10]:
-                cell.alignment = center_align
-            else:
+            # Left align booth, voter name, relative name; Center align others
+            if col_idx in [4, 6, 7]:
                 cell.alignment = left_align
+            else:
+                cell.alignment = center_align
 
-    # Column widths
-    col_widths = {1: 12, 2: 10, 3: 10, 4: 38, 5: 22, 6: 15, 7: 22, 8: 12, 9: 8, 10: 10, 11: 18}
+    # Set column widths matching 12-column layout
+    col_widths = {
+        1: 8,    # Sr No
+        2: 12,   # वार्ड संख्या
+        3: 12,   # भाग संख्या
+        4: 36,   # मतदान केंद्र की संख्या व पता
+        5: 12,   # क्रम संख्या
+        6: 22,   # निर्वाचक का नाम
+        7: 22,   # पिता/पति का नाम
+        8: 12,   # मकान संख्या
+        9: 8,    # आयु
+        10: 10,  # लिंग
+        11: 18,  # EPIC No
+        12: 18   # ग्राम पंचायत
+    }
     for col_idx, w in col_widths.items():
         ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = w
 
@@ -711,6 +771,88 @@ def export_voters_to_excel(voters, out_excel_path):
     wb.save(out_excel_path)
     wb.close()
     return out_excel_path
+
+def read_voters_from_excel(excel_path):
+    if not os.path.exists(excel_path):
+        raise FileNotFoundError(f"Excel file not found: {excel_path}")
+
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    ws = wb.active
+
+    # Detect header mapping from row 1
+    header_row = [cell.value for cell in ws[1]]
+    col_map = {}
+    for idx, h in enumerate(header_row):
+        if not h:
+            continue
+        h_clean = re.sub(r'[\s_]+', '', str(h)).lower()
+        if any(k in h_clean for k in ["srno", "sr", "क्रमांक"]) and "क्रमसंख्या" not in h_clean:
+            col_map["sr_no"] = idx
+        elif any(k in h_clean for k in ["वार्डसंख्या", "वार्ड"]):
+            col_map["ward"] = idx
+        elif any(k in h_clean for k in ["भागसंख्या", "भाग"]):
+            col_map["part"] = idx
+        elif any(k in h_clean for k in ["मतदानकेंद्र", "मतदान", "booth"]):
+            col_map["booth"] = idx
+        elif any(k in h_clean for k in ["क्रमसंख्या", "serialno", "serial"]):
+            col_map["serial_no"] = idx
+        elif any(k in h_clean for k in ["निर्वाचककानाम", "मतदाताकानाम", "निर्वाचक", "मतदाता", "votername", "name"]):
+            col_map["voter_name"] = idx
+        elif any(k in h_clean for k in ["पिता/पतिकाराम", "पिता/पतिकानाम", "पिताकानाम", "पतिकाराम", "रिश्तेदार", "relativename", "father"]):
+            col_map["rel_name"] = idx
+        elif any(k in h_clean for k in ["मकानसंख्या", "मकान", "houseno"]):
+            col_map["house_no"] = idx
+        elif any(k in h_clean for k in ["आयु", "उम्र", "age"]):
+            col_map["age"] = idx
+        elif any(k in h_clean for k in ["लिंग", "gender", "sex"]):
+            col_map["gender"] = idx
+        elif any(k in h_clean for k in ["epicno", "epic", "पहचानपत्र"]):
+            col_map["epic"] = idx
+        elif any(k in h_clean for k in ["ग्रामपंचायत", "panchayat", "पंचायत"]):
+            col_map["gram_panchayat"] = idx
+
+    voters = []
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not any(row):
+            continue
+
+        def get_val(key, default_col):
+            col_idx = col_map.get(key, default_col)
+            if col_idx is not None and col_idx < len(row) and row[col_idx] is not None:
+                val = str(row[col_idx]).strip()
+                if val.endswith(".0"):
+                    val = val[:-2]
+                return val
+            return ""
+
+        serial = get_val("serial_no", 4)
+        v_name = get_val("voter_name", 5)
+        if not v_name and not serial:
+            continue
+
+        rel_name = get_val("rel_name", 6)
+        gender = get_val("gender", 9)
+        # Check if relation is husband based on gender
+        rel_type = "पति" if gender in ["स्त्री", "महिला", "F", "Female"] else "पिता"
+
+        v = {
+            "Ward": get_val("ward", 1) or "1",
+            "Part": get_val("part", 2) or "1",
+            "Booth": get_val("booth", 3),
+            "SerialNo": int(serial) if serial.isdigit() else serial,
+            "VoterName": v_name,
+            "RelativeType": rel_type,
+            "RelativeName": rel_name,
+            "HouseNo": get_val("house_no", 7) or "-",
+            "Age": get_val("age", 8),
+            "Gender": gender or "पुरुष",
+            "EPIC": get_val("epic", 10),
+            "GramPanchayat": get_val("gram_panchayat", 11)
+        }
+        voters.append(v)
+
+    wb.close()
+    return voters
 
 if __name__ == "__main__":
     import argparse

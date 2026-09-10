@@ -21,9 +21,9 @@ os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 try:
-    from voter_suvidha.extractor import extract_pdf_elector_data, export_voters_to_excel
+    from voter_suvidha.extractor import extract_pdf_elector_data, export_voters_to_excel, read_voters_from_excel
 except ImportError:
-    from extractor import extract_pdf_elector_data, export_voters_to_excel
+    from extractor import extract_pdf_elector_data, export_voters_to_excel, read_voters_from_excel
 
 # Clean empty global session - only populated when user uploads a PDF
 global_session = {
@@ -81,6 +81,11 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol,
     photo_html = f'<img class="cand-photo" src="{candidate_photo}" alt="Candidate">' if candidate_photo else '<div class="cand-avatar">👤</div>'
     symbol_html = f'<div class="cand-symbol-frame"><img class="cand-symbol-img" src="{party_symbol}" alt="चुनाव चिन्ह"></div>' if party_symbol else ''
 
+    rel_type = v.get('RelativeType', '')
+    rel_label = f"{rel_type} का नाम" if rel_type in ['पिता', 'पति', 'माता'] else "पिता/पति का नाम"
+    gp = v.get('GramPanchayat', '')
+    gp_html = f'<span class="badge-item">पं : <strong>[ {gp} ]</strong></span>' if gp else ''
+
     return f"""
         <div class="slip">
           <div class="slip-left">
@@ -89,6 +94,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol,
               <div class="meta-row">
                 <span class="badge-item">वार्ड नं : <strong>[ {v.get('Ward', '1')} ]</strong></span>
                 <span class="badge-item">भाग : <strong>[ {v.get('Part', '1')} ]</strong></span>
+                {gp_html}
               </div>
               <div class="meta-row-serial">
                 <span class="badge-item serial-badge">क्रम संख्या : <strong>[ {v.get('SerialNo', '')} ]</strong></span>
@@ -96,7 +102,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol,
             </div>
             <div class="voter-body">
               <div class="voter-line voter-name">मतदाता का नाम : <strong>{v.get('VoterName', '')}</strong></div>
-              <div class="voter-line">{v.get('RelativeType', 'पिता')} का नाम : <span>{v.get('RelativeName', '')}</span></div>
+              <div class="voter-line">{rel_label} : <span>{v.get('RelativeName', '')}</span></div>
               <div class="voter-line">मकान नं. : <strong>{v.get('HouseNo', '')}</strong> &nbsp;|&nbsp; उम्र : <strong>{v.get('Age', '')}</strong> &nbsp;|&nbsp; लिंग : <strong>{v.get('Gender', '')}</strong></div>
               <div class="voter-line">पहचान पत्र क्र. (EPIC) : <strong>{v.get('EPIC', '')}</strong></div>
             </div>
@@ -610,6 +616,27 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         global_session["parts"] = parts_list
         global_session["deletedVoters"] = list(range(total_deleted_sum))
 
+        # Auto-generate 12-column master Excel file immediately upon upload
+        ward_num = global_session["ward"]
+        out_excel_name = f"voter_list_ward_{ward_num}.xlsx"
+        dst_excel = os.path.join(DOWNLOADS_DIR, out_excel_name)
+        ws_excel = os.path.join(WORKSPACE_DIR, out_excel_name)
+        web_dl_dir = os.path.join(WEB_DIR, "downloads")
+        os.makedirs(web_dl_dir, exist_ok=True)
+        web_excel = os.path.join(web_dl_dir, out_excel_name)
+
+        excel_url = ""
+        try:
+            export_voters_to_excel(all_active_voters, dst_excel)
+            import shutil
+            shutil.copy(dst_excel, ws_excel)
+            shutil.copy(dst_excel, web_excel)
+            global_session["excelPath"] = dst_excel
+            excel_url = f"/downloads/{out_excel_name}"
+            print(f"Master 12-column Excel auto-generated: {dst_excel}")
+        except Exception as ex:
+            print(f"Initial Excel export error: {ex}")
+
         resp_obj = {
             "success": True,
             "ward": global_session["ward"],
@@ -619,12 +646,37 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "activeVoters": len(all_active_voters),
             "deletedVoters": total_deleted_sum,
             "parts": parts_list,
-            "message": f"मतदाता सूची (वार्ड {global_session['ward']}) सफलतापूर्वक विश्लेषित!"
+            "excelUrl": excel_url,
+            "excelFilename": out_excel_name,
+            "message": f"मतदाता सूची (वार्ड {global_session['ward']}) सफलतापूर्वक विश्लेषित एवं 12-कॉलम एक्सेल तैयार!"
         }
         self.send_json_response(resp_obj)
 
+    def get_voters_from_active_excel_or_session(self):
+        ward_num = global_session.get("ward", "1")
+        excel_candidates = [
+            global_session.get("excelPath"),
+            os.path.join(DOWNLOADS_DIR, f"voter_list_ward_{ward_num}.xlsx"),
+            os.path.join(WORKSPACE_DIR, f"voter_list_ward_{ward_num}.xlsx"),
+            os.path.join(WEB_DIR, "downloads", f"voter_list_ward_{ward_num}.xlsx")
+        ]
+        active_excel = next((p for p in excel_candidates if p and os.path.exists(p)), None)
+
+        if active_excel:
+            try:
+                print(f"Loading voter records directly from Excel: {active_excel}")
+                voters = read_voters_from_excel(active_excel)
+                if voters:
+                    print(f"Successfully loaded {len(voters)} voters from Excel.")
+                    return voters
+            except Exception as e:
+                print(f"Warning: Failed to read from Excel ({e}), falling back to session memory")
+
+        return global_session.get("activeVoters", [])
+
     def handle_preview(self, payload):
-        if not global_session.get("activeVoters"):
+        voters_source = self.get_voters_from_active_excel_or_session()
+        if not voters_source:
             self.send_html_response("<p style='color:red;font-family:sans-serif;padding:20px;'>कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।</p>", status_code=400)
             return
 
@@ -636,15 +688,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         candidate_photo = payload.get("candidatePhoto", "")
         party_symbol = payload.get("partySymbol", "")
 
-        # Apply booth overrides if provided
-        if payload.get("parts"):
-            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
-            for v in global_session["activeVoters"]:
-                vp = str(v.get("Part", "1"))
-                if vp in part_map:
-                    v["Booth"] = part_map[vp]
-
-        voters = global_session["activeVoters"][:slips_per_page]
+        voters = voters_source[:slips_per_page]
         grid_css, font_scale = get_grid_and_font(slips_per_page)
         
         slips_html = ""
@@ -677,14 +721,6 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response({"success": False, "error": "कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।"}, status_code=400)
             return
 
-        # Apply booth overrides if provided
-        if payload.get("parts"):
-            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
-            for v in global_session["activeVoters"]:
-                vp = str(v.get("Part", "1"))
-                if vp in part_map:
-                    v["Booth"] = part_map[vp]
-
         ward_num = global_session.get("ward", "1")
         out_filename = f"voter_list_ward_{ward_num}.xlsx"
         dst_excel = os.path.join(DOWNLOADS_DIR, out_filename)
@@ -698,6 +734,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             import shutil
             shutil.copy(dst_excel, ws_excel)
             shutil.copy(dst_excel, web_excel)
+            global_session["excelPath"] = dst_excel
         except Exception as e:
             print(f"Excel export error: {e}")
             self.send_json_response({"success": False, "error": str(e)}, status_code=500)
@@ -712,7 +749,8 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def handle_generate_pdf(self, payload):
-        if not global_session.get("activeVoters"):
+        voters_source = self.get_voters_from_active_excel_or_session()
+        if not voters_source:
             self.send_json_response({"success": False, "error": "कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।"}, status_code=400)
             return
 
@@ -724,20 +762,13 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         candidate_photo = payload.get("candidatePhoto", "")
         party_symbol = payload.get("partySymbol", "")
 
-        # Apply booth overrides if provided
-        if payload.get("parts"):
-            part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
-            for v in global_session["activeVoters"]:
-                vp = str(v.get("Part", "1"))
-                if vp in part_map:
-                    v["Booth"] = part_map[vp]
-
         ward_num = global_session.get("ward", "1")
         out_filename = f"voter_slips_ward_{ward_num}.pdf"
         dst_pdf = os.path.join(DOWNLOADS_DIR, out_filename)
 
+        print(f"Generating PDF slips directly from Excel records ({len(voters_source)} voters)...")
         self.generate_custom_pdf(
-            global_session["activeVoters"], candidate, party, appeal,
+            voters_source, candidate, party, appeal,
             slips_per_page, candidate_photo, party_symbol, dst_pdf, candidate_post
         )
 
@@ -749,11 +780,11 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         shutil.copy(dst_pdf, os.path.join(web_dl_dir, out_filename))
 
         import math
-        total_pages = math.ceil(len(global_session["activeVoters"]) / slips_per_page)
+        total_pages = math.ceil(len(voters_source) / slips_per_page)
 
         resp_obj = {
             "success": True,
-            "totalVoters": len(global_session["activeVoters"]),
+            "totalVoters": len(voters_source),
             "totalPages": total_pages,
             "filename": out_filename,
             "downloadUrl": f"/downloads/{out_filename}"

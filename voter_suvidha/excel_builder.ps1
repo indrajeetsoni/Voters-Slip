@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # VOTER SUVIDHA - EXCEL EXPORT MODULE
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -35,7 +35,7 @@ function Export-VotersToExcel($votersList, $outputPath, $templatePath = "") {
         $writer.WriteLine('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">')
 
         $totalRows = $votersList.Count + 1
-        $writer.WriteLine("<dimension ref=`"A1:K$totalRows`"/>")
+        $writer.WriteLine("<dimension ref=`"A1:L$totalRows`"/>")
         $writer.WriteLine('<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>')
         $writer.WriteLine('<sheetFormatPr defaultRowHeight="15"/>')
         $writer.WriteLine('<cols>')
@@ -50,18 +50,19 @@ function Export-VotersToExcel($votersList, $outputPath, $templatePath = "") {
         $writer.WriteLine('<col min="9" max="9" width="8" customWidth="1"/>')
         $writer.WriteLine('<col min="10" max="10" width="8" customWidth="1"/>')
         $writer.WriteLine('<col min="11" max="11" width="18" customWidth="1"/>')
+        $writer.WriteLine('<col min="12" max="12" width="18" customWidth="1"/>')
         $writer.WriteLine('</cols>')
         $writer.WriteLine('<sheetData>')
 
-        # Header Row
+        # Header Row (Exact 12 columns)
         $headers = @(
             "Sr No", "वार्ड संख्या", "भाग संख्या", "मतदान केंद्र की संख्या व पता",
             "क्रम संख्या", "निर्वाचक का नाम", "पिता/पति का नाम", "मकान संख्या",
-            "आयु", "लिंग", "EPIC No"
+            "आयु", "लिंग", "EPIC No", "ग्राम पंचायत"
         )
-        $colLetters = @('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K')
+        $colLetters = @('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L')
 
-        $writer.WriteLine('<row r="1" spans="1:11">')
+        $writer.WriteLine('<row r="1" spans="1:12">')
         for ($c = 0; $c -lt $headers.Count; $c++) {
             $col = $colLetters[$c]
             $val = [System.Security.SecurityElement]::Escape($headers[$c])
@@ -83,8 +84,9 @@ function Export-VotersToExcel($votersList, $outputPath, $templatePath = "") {
             $age = [System.Security.SecurityElement]::Escape("$($v.Age)")
             $g = [System.Security.SecurityElement]::Escape("$($v.Gender)")
             $epic = [System.Security.SecurityElement]::Escape("$($v.EPIC)")
+            $gp = [System.Security.SecurityElement]::Escape("$($v.GramPanchayat)")
 
-            $writer.WriteLine("<row r=`"$r`" spans=`"1:11`">" +
+            $writer.WriteLine("<row r=`"$r`" spans=`"1:12`">" +
                 "<c r=`"A$r`"><v>$srNo</v></c>" +
                 "<c r=`"B$r`" t=`"inlineStr`"><is><t>$w</t></is></c>" +
                 "<c r=`"C$r`" t=`"inlineStr`"><is><t>$p</t></is></c>" +
@@ -96,6 +98,7 @@ function Export-VotersToExcel($votersList, $outputPath, $templatePath = "") {
                 "<c r=`"I$r`"><v>$age</v></c>" +
                 "<c r=`"J$r`" t=`"inlineStr`"><is><t>$g</t></is></c>" +
                 "<c r=`"K$r`" t=`"inlineStr`"><is><t>$epic</t></is></c>" +
+                "<c r=`"L$r`" t=`"inlineStr`"><is><t>$gp</t></is></c>" +
                 "</row>")
             $srNo++
         }

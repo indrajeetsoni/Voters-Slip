@@ -228,7 +228,7 @@ function renderSummary(data) {
   document.getElementById('statDeletedVoters').innerText = data.totalDeleted.toLocaleString('en-IN');
   document.getElementById('statTotalSerials').innerText = data.totalSerials.toLocaleString('en-IN');
   document.getElementById('statWardNum').innerText = data.ward || '1';
-  document.getElementById('statPartsCount').innerText = `${data.parts.length} भाग शामिल`;
+  document.getElementById('statPartsCount').innerText = (data.gramPanchayat ? `${data.gramPanchayat} | ` : '') + `${data.parts.length} भाग शामिल`;
 
   // Render Parts table
   const tbody = document.getElementById('partsTableBody');
@@ -383,7 +383,7 @@ function setupActionButtons() {
       showSuccessStatus(
         '📊',
         'एक्सेल फाइल सफलतापूर्वक तैयार हो गई!',
-        `कुल ${res.totalVoters.toLocaleString('en-IN')} मतदाताओं की 11-कॉलम एक्सेल लिस्ट तैयार है।`,
+        `कुल ${res.totalVoters.toLocaleString('en-IN')} मतदाताओं की 12-कॉलम एक्सेल लिस्ट तैयार है।`,
         res.downloadUrl,
         res.filename || 'voter_list.xlsx'
       );
