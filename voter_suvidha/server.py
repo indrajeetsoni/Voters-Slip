@@ -133,7 +133,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol,
             </div>
             <div class="voter-body">
               <div class="voter-line voter-name">मतदाता का नाम : <strong>{v.get('VoterName', '')}</strong></div>
-              <div class="voter-line">पिता/पति का नाम : <span>{v.get('RelativeName', '')}</span></div>
+              <div class="voter-line">{v.get('RelativeType', 'पिता')} का नाम : <span>{v.get('RelativeName', '')}</span></div>
               <div class="voter-line">मकान नं. : <strong>{v.get('HouseNo', '')}</strong> &nbsp;|&nbsp; उम्र : <strong>{v.get('Age', '')}</strong> &nbsp;|&nbsp; लिंग : <strong>{v.get('Gender', '')}</strong></div>
               <div class="voter-line">पहचान पत्र क्र. (EPIC) : <strong>{v.get('EPIC', '')}</strong></div>
             </div>
