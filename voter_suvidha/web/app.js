@@ -211,6 +211,9 @@ async function processUploadedFiles() {
 
     const result = await resp.json();
     extractedData = result;
+    if (result.totalActive === 0) {
+      alert('⚠️ ध्यान दें: अपलोड की गई फाइल ("' + (selectedFiles[0]?.name || '') + '") से कोई मतदाता नहीं मिले।\n\nऐसा प्रतीत होता है कि आपने चुनाव आयोग की मूल निर्वाचक नामावली की जगह पूर्व में जनरेट की गई वोटर पर्ची (Generated Voter Slips PDF) चुन ली है।\n\nकृपया मूल मतदाता सूची PDF (जैसे: BALOONDA-Ward No-005.pdf या GHORAWAR-Ward No-001.pdf) अपलोड करें।');
+    }
     renderSummary(result);
 
   } catch (err) {
