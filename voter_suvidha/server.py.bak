@@ -310,9 +310,6 @@ def get_full_page_css(grid_css, font_scale):
     }}
     """
 
-
-from slip_layout import render_slip_html, get_full_page_css  # new slip design (see slip_layout.py)
-
 def find_browser():
     candidates = [
         os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
