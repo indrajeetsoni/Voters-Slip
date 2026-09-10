@@ -337,21 +337,53 @@ WORD_MAP = {
     "चनद": "चन्द"
 }
 
+# Dynamically load extended words dictionary if present
+_dict_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "words_dict.json")
+if os.path.exists(_dict_path):
+    try:
+        with open(_dict_path, "r", encoding="utf-8") as _f:
+            _ext_map = json.load(_f)
+            WORD_MAP.update(_ext_map)
+    except Exception:
+        pass
+
 def clean_hindi_name(raw):
     if not raw:
         return ""
     s = raw.strip()
 
-    # Pre-clean known suffixes with word boundaries
+    # Pre-clean known suffixes with word boundaries (Panchayat + Nagar Palika)
+    s = re.sub(r'मपनपरपम\b|मपनाराम\b', 'मानाराम', s)
+    s = re.sub(r'मपनप\b', 'माना', s)
+    s = re.sub(r'दपगपरपम\b|दपगपर\b', 'दुर्गाराम', s)
+    s = re.sub(r'सवरपरपम\b', 'सवाराम', s)
+    s = re.sub(r'मसनरदगवर\b', 'मोहिनी देवी', s)
+    s = re.sub(r'मसनर\b', 'मोहिनी', s)
+    s = re.sub(r'रामगश\s*वर\b|रपमगशवर\b', 'रामेश्वर', s)
     s = re.sub(r'लसह\b|नसहम\b|लसग\b|लसहप\b', 'सिंह', s)
-    s = re.sub(r'दकरल\b|दरल\s*क\b|दरलक\b|दकल\b', 'देवी', s)
-    s = re.sub(r'चफहरन\b|चचहरन\b|चयहरन\b', 'चौहान', s)
-    s = re.sub(r'ररठयड\b|ररठयद\b', 'राठौड', s)
-    s = re.sub(r'कचमररल\b', 'कुमारी', s)
+    s = re.sub(r'दकरल\b|दरल\s*क\b|दरलक\b|दकल\b|दगवर\b', 'देवी', s)
+    s = re.sub(r'चफहरन\b|चचहरन\b|चयहरन\b|चचरपन\b', 'चौहान', s)
+    s = re.sub(r'ररठयड\b|ररठयद\b|रपठयड\b', 'राठौड', s)
+    s = re.sub(r'गरलयत\b|गगरलयत\b', 'गहलोत', s)
+    s = re.sub(r'सररवर\b', 'सीरवी', s)
+    s = re.sub(r'तनवर\b', 'तंवर', s)
+    s = re.sub(r'पनवपर\b', 'पंवार', s)
+    s = re.sub(r'जयशर\b', 'जोशी', s)
+    s = re.sub(r'मपगरव\b', 'भार्गव', s)
+    s = re.sub(r'लपल\b', 'लाल', s)
+    s = re.sub(r'पकपश\b', 'प्रकाश', s)
+    s = re.sub(r'परपम\b', 'ाराम', s)
+    s = re.sub(r'रपम\b', 'राम', s)
+    s = re.sub(r'चनद\b', 'चन्द', s)
+    s = re.sub(r'कचमररल\b|कचमपरर\b', 'कुमारी', s)
     s = re.sub(r'कचमरर\b', 'कुमार', s)
     s = re.sub(r'दकरकन\s*द\b|दरकन\s*द\b|दरकन\s*क\s*द\b', 'देवेन्द्र', s)
-    s = re.sub(r'सचरकन\s*द\b', 'सुरेन्द्र', s)
+    s = re.sub(r'सचरकन\s*द\b|सपरकद\b', 'सुरेन्द्र', s)
     s = re.sub(r'हककनत\b|हकमनत\b', 'हेमन्त', s)
+    s = re.sub(r'नजतगनद\b', 'जितेन्द्र', s)
+    s = re.sub(r'रपजगनद\b', 'राजेन्द्र', s)
+    s = re.sub(r'नरकद\b', 'नरेन्द्र', s)
+    s = re.sub(r'मरकद\b', 'महेन्द्र', s)
 
     # Word-by-word dictionary translation
     tokens = s.split()
@@ -375,13 +407,20 @@ def clean_booth_address(raw_b):
         return ""
     s = clean_hindi_name(raw_b)
     s = re.sub(r'ररजक[कए]ज|रोकीय|राकीय', 'राजकीय', s)
-    s = re.sub(r'\bउच\b|\bअन\b', 'उच्च', s)
+    s = re.sub(r'उ(?:च्|च)+|\bअन\b', 'उच्च', s)
     s = re.sub(r'मरधजनमक|करसजनकक|माबयमिक', 'माध्यमिक', s)
     s = re.sub(r'नरदरलज|नरररतज|नवदपलब', 'विद्यालय', s)
     s = re.sub(r'ररनजजरररस', 'राजियावास', s)
     s = re.sub(r'जररजर', 'जवाजा', s)
     s = re.sub(r'सरमरनलजर|सरमालिया', 'सरमालिया', s)
     s = re.sub(r'कमरर|ककरर', 'कमरा', s)
+    s = re.sub(r'बपईट', 'ब्राईट', s)
+    s = re.sub(r'मपइणर', 'माइण्ड', s)
+    s = re.sub(r'पनबलक', 'पब्लिक', s)
+    s = re.sub(r'सकसल', 'स्कूल', s)
+    s = re.sub(r'आगगवप', 'आगेवा', s)
+    s = re.sub(r'रयड़', 'रोड़', s)
+    s = re.sub(r'जजतपरण', 'जैतारण', s)
     s = re.sub(r'न\.?\s*(\d+)', r'न.\1', s)
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
@@ -399,7 +438,7 @@ def extract_pdf_elector_data(pdf_path):
 
     # 1. Ward Number
     ward = "1"
-    ward_m = re.search(r'(?:ररडर|रररर|वररर|वरडर|वार्ड)\s*(?:कमरपक|करमपक|क्रमांक|सपखजर|संख्या|नं)?\s*[:.-]?\s*(\d+)', p1_text)
+    ward_m = re.search(r'(?:ररडर|रररर|वररर|वरडर|वपरर|वार्ड)\s*(?:कमरपक|करमपक|क्रमांक|सपखजर|सनखखप|संख्या|नं)?\s*[:.-]?\s*(\d+)', p1_text)
     if ward_m:
         ward = ward_m.group(1)
     else:
@@ -416,7 +455,7 @@ def extract_pdf_elector_data(pdf_path):
     blocks = p1.get_text("blocks")
     booth_y = None
     for b in blocks:
-        if re.search(r'मतद[रा]न\s*ब[बूह]स|मतदान\s*बूथ', b[4]):
+        if re.search(r'मतद[राप]न\s*(?:क[ककद][दर]|केंद्र|ब[बूह]स|बूथ)', b[4]):
             booth_y = b[1]
             break
     if booth_y is not None:
@@ -424,7 +463,7 @@ def extract_pdf_elector_data(pdf_path):
             if abs(b[1] - booth_y) < 18 and b[0] > 150:
                 raw_b = b[4].strip()
                 cleaned = clean_booth_address(raw_b)
-                if len(cleaned) > 8:
+                if len(cleaned) > 5:
                     booth = cleaned
                     break
 
@@ -447,7 +486,7 @@ def extract_pdf_elector_data(pdf_path):
     for p_no in range(1, len(doc)-1):
         p_text = doc[p_no].get_text()
         # Skip pure deletion pages or cover/map pages
-        if p_no == 1 and ("नकशर" in p_text or "नक्शा" in p_text):
+        if p_no == 1 and ("नकशर" in p_text or "नक्शा" in p_text or "नकशप" in p_text):
             continue
 
         lines = [l.strip() for l in p_text.splitlines() if l.strip()]
@@ -463,7 +502,7 @@ def extract_pdf_elector_data(pdf_path):
                     i += 3
                     continue
 
-                card_slice = lines[max(0, i-11):i]
+                card_slice = lines[max(0, i-15):i]
 
                 # Extract Relationship Type
                 rel_type = "पिता"
@@ -471,10 +510,10 @@ def extract_pdf_elector_data(pdf_path):
                     if "पनत" in cl or "पति" in cl:
                         rel_type = "पति"
                         break
-                    elif "नपतर" in cl or "पिता" in cl:
+                    elif "नपतर" in cl or "नपतप" in cl or "पिता" in cl:
                         rel_type = "पिता"
                         break
-                    elif "मपतर" in cl or "माता" in cl:
+                    elif "मपतर" in cl or "मपतप" in cl or "माता" in cl:
                         rel_type = "माता"
                         break
                     elif "अनज" in cl or "अन्य" in cl:
@@ -483,22 +522,23 @@ def extract_pdf_elector_data(pdf_path):
 
                 age = "30"
                 for cl in card_slice:
-                    if "आजच:" in cl or "आयु:" in cl:
+                    if any(k in cl for k in ["आजच", "आखप", "आयु", "उम्र"]):
                         am = re.search(r'\d+', cl)
                         if am:
                             age = am.group(0)
 
-                gender = "स्त्री" if any(cl in ["सल", "स्त्री", "महिला"] for cl in card_slice) else "पुरुष"
+                is_female = any(cl in ["सल", "सर", "स्त्री", "महिला"] for cl in card_slice)
+                gender = "स्त्री" if is_female else "पुरुष"
 
                 epic = ""
-                for cl in card_slice:
-                    if re.match(r'^[A-Z]{3}\d{7}$|^RJ/\d+/\d+/\d+$', cl):
+                for cl in reversed(card_slice):
+                    if re.match(r'^[A-Z]{3}\d{7}$|^RJ/\d+/\d+/\d+$|^[A-Z0-9/_-]{8,}$', cl):
                         epic = cl
                         break
 
                 g_idx = -1
                 for ki, cl in enumerate(card_slice):
-                    if cl in ["पचरष", "सल", "पुरुष", "स्त्री"]:
+                    if cl in ["पचरष", "पपरष", "पुरुष", "सल", "सर", "स्त्री", "महिला"]:
                         g_idx = ki
                         break
 
