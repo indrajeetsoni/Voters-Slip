@@ -831,11 +831,23 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 if __name__ == "__main__":
     import webbrowser
-    with ThreadedHTTPServer(("127.0.0.1", PORT), VoterSuvidhaHandler) as httpd:
-        print(f"Voter Suvidha server running on http://127.0.0.1:{PORT}")
-        sys.stdout.flush()
+    server_port = PORT
+    httpd = None
+    for p in range(PORT, PORT + 11):
         try:
-            webbrowser.open(f"http://127.0.0.1:{PORT}")
-        except Exception:
-            pass
-        httpd.serve_forever()
+            httpd = ThreadedHTTPServer(("127.0.0.1", p), VoterSuvidhaHandler)
+            server_port = p
+            break
+        except (OSError, PermissionError):
+            continue
+
+    if not httpd:
+        raise RuntimeError(f"Could not bind server to any port between {PORT} and {PORT + 10}.")
+
+    print(f"Voter Suvidha server running on http://127.0.0.1:{server_port}")
+    sys.stdout.flush()
+    try:
+        webbrowser.open(f"http://127.0.0.1:{server_port}")
+    except Exception:
+        pass
+    httpd.serve_forever()

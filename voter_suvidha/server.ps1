@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # VOTER SUVIDHA - LOCAL WEB SERVER & API BACKEND
 # ==============================================================================
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -21,30 +21,9 @@ if (-not (Test-Path $uploadDir)) { New-Item -ItemType Directory -Path $uploadDir
 if (-not (Test-Path $downloadsDir)) { New-Item -ItemType Directory -Path $downloadsDir -Force | Out-Null }
 
 $global:sessionData = @{
-    Parts = @(
-        @{
-            part = "1"
-            booth = "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)"
-            totalSerials = 1200
-            deletedCount = 0
-            activeCount = 1200
-        }
-    )
+    Parts = @()
     AllVoters = @()
-    Ward = "001"
-}
-
-# Pre-load verified master voter list if available
-$masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
-if (Test-Path $masterWard1Path) {
-    try {
-        $jsonText = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
-        $masterList = $jsonText | ConvertFrom-Json
-        $global:sessionData.AllVoters = @($masterList)
-        Write-Host "Loaded $($global:sessionData.AllVoters.Count) verified voters for Ward 1 from voters_ward_001.json" -ForegroundColor Green
-    } catch {
-        Write-Host "Failed to load voters_ward_001.json: $_" -ForegroundColor Yellow
-    }
+    Ward = ""
 }
 
 # Start HTTP Listener
@@ -419,29 +398,7 @@ try {
                     $outPdfPath = Join-Path $workspaceDir $outFileName
                     $dlPdfPath = Join-Path $downloadsDir $outFileName
 
-                    # Double-check all voter and father/husband names before PDF generation
-                    $masterWard1Path = Join-Path $scriptDir "voters_ward_001.json"
-                    if (Test-Path $masterWard1Path) {
-                        try {
-                            $mJson = [System.IO.File]::ReadAllText($masterWard1Path, [System.Text.Encoding]::UTF8)
-                            $mArr = $mJson | ConvertFrom-Json
-                            $mLookup = @{}
-                            foreach ($mv in $mArr) { $mLookup[[int]$mv.SerialNo] = $mv }
-                            $checkedCount = 0
-                            foreach ($v in $global:sessionData.AllVoters) {
-                                $sNum = [int]$v.SerialNo
-                                if ($mLookup.ContainsKey($sNum)) {
-                                    $mv = $mLookup[$sNum]
-                                    if ($mv.VoterName) { $v.VoterName = $mv.VoterName }
-                                    if ($mv.RelativeName) { $v.RelativeName = $mv.RelativeName }
-                                    $checkedCount++
-                                }
-                            }
-                            Write-Host "[Verification] Double-checked and verified $checkedCount voter and relative names before PDF export." -ForegroundColor Green
-                        } catch {
-                            Write-Host "Warning: PDF verification check failed: $_" -ForegroundColor Yellow
-                        }
-                    }
+
 
                     Write-Host "Generating $($config.SlipsPerPage)-slips-per-page PDF for $($global:sessionData.AllVoters.Count) voters..." -ForegroundColor Cyan
                     Export-VoterSlipsPdf $global:sessionData.AllVoters $config $outPdfPath

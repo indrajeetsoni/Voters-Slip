@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # VOTER SUVIDHA - ROBUST PDF EXTRACTION MODULE (PURE ASCII SOURCE)
 # ==============================================================================
 Add-Type -AssemblyName System.IO.Compression
@@ -522,9 +522,7 @@ function Extract-VotersFromPdf($pdfPath, $overrideWard = "", $overridePart = "",
                             $uniName = if (-not [string]::IsNullOrWhiteSpace($dictName)) { $dictName } else { $decName }
                             $uniRel = if (-not [string]::IsNullOrWhiteSpace($dictRel)) { $dictRel } else { $decRel }
 
-                            # Safety normalization for common ligature artifacts
-                            $uniName = $uniName -replace 'होरी|हेारी', 'हजारी' -replace 'सुरेमल', 'सुरजमल' -replace 'पां[Yy]ी|पांयी', 'पांची' -replace 'प्रैमराे|प्रैमरो|प्रेमराे', 'प्रेमराज' -replace 'ेस्करण|ेसकरण', 'जसकरण'
-                            $uniRel = $uniRel -replace 'होरी|हेारी', 'हजारी' -replace 'सुरेमल', 'सुरजमल' -replace 'पां[Yy]ी|पांयी', 'पांची' -replace 'प्रैमराे|प्रैमरो|प्रेमराे', 'प्रेमराज' -replace 'ेस्करण|ेसकरण', 'जसकरण'
+
 
                             if ([string]::IsNullOrWhiteSpace($uniName)) { $uniName = "$strMatdata $sn" }
                             if ([string]::IsNullOrWhiteSpace($uniRel)) { $uniRel = "-" }
