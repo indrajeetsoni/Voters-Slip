@@ -420,6 +420,8 @@ def clean_booth_address(raw_b):
     s = re.sub(r'नरदरलज|नरररतज|नवदपलब', 'विद्यालय', s)
     s = re.sub(r'बललनदर|बलचनदर', 'बलूनदा', s)
     s = re.sub(r'बररखकरर', 'बड़ाखेड़ा', s)
+    s = re.sub(r'परसनमक|पररसनमक', 'प्राथमिक', s)
+    s = re.sub(r'बससल|बससस', 'बस्सी', s)
     s = re.sub(r'ररनजजरररस', 'राजियावास', s)
     s = re.sub(r'जररजर', 'जवाजा', s)
     s = re.sub(r'सरमरनलजर|सरमालिया', 'सरमालिया', s)
@@ -479,17 +481,27 @@ def extract_pdf_elector_data(pdf_path):
                     booth = cleaned
                     break
 
-    # 3. Detect all Deleted Serial Numbers
+    # 3. Detect all Deleted Serial Numbers (bounded search to avoid false positives on supplementary pages)
     deleted_serials = set()
     for p_no in range(len(doc)):
         text = doc[p_no].get_text()
-        if 'E-Deleted' in text or 'S-Deleted' in text or 'R-Deleted' in text or 'विलोपन' in text or 'नरलयपन' in text:
-            m = re.findall(r'\n([ESR])\s*\n\s*Photo is\s*\n\s*Available\s*\n\s*(\d+)', text)
-            for mark, sn in m:
-                deleted_serials.add(int(sn))
-            m2 = re.findall(r'Photo is\s*\n\s*Available\s*\n\s*(\d+)\s*\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n[^\n]+\n([ESR])\b', text)
-            for sn, mark in m2:
-                deleted_serials.add(int(sn))
+        # 1. Main list marked cards: 'E 235' or 'S 235' or 'R 235' after Available
+        for m in re.finditer(r'Available\s*\n\s*([ESR])\s+(\d+)', text):
+            deleted_serials.add(int(m.group(2)))
+        # 2. Section 2 deletion list: strictly between 'घटक 2' and 'घटक 3'
+        if 'घटक 2' in text or 'घटक  2' in text:
+            sec2 = re.split(r'घटक\s*2', text)[1]
+            sec2_part = re.split(r'घटक\s*3', sec2)[0]
+            for m in re.finditer(r'Available\s*\n\s*(?:[ESR]\s+)?(\d+)', sec2_part):
+                deleted_serials.add(int(m.group(1)))
+            for m in re.finditer(r'([ESR])\s*\n\s*Photo is\s*\n\s*Available\s*\n\s*(\d+)', sec2_part):
+                deleted_serials.add(int(m.group(2)))
+        # 3. Pure deletion pages (e.g. Jawaja deletion batches)
+        elif 'E-Deleted' in text or 'S-Deleted' in text or 'R-Deleted' in text:
+            for m in re.finditer(r'\n([ESR])\s*\n\s*Photo is\s*\n\s*Available\s*\n\s*(\d+)', text):
+                deleted_serials.add(int(m.group(2)))
+            for m in re.finditer(r'Available\s*\n\s*([ESR])\s+(\d+)', text):
+                deleted_serials.add(int(m.group(2)))
 
     # 4. Extract all voter cards across all pages
     voters_dict = {}
@@ -534,8 +546,6 @@ def extract_pdf_elector_data(pdf_path):
                         rel_type = "अन्य"
                         break
 
-
-
                 age = "30"
                 for cl in card_slice:
                     if any(k in cl for k in ["आजच", "आखप", "आयु", "उम्र"]):
@@ -543,7 +553,7 @@ def extract_pdf_elector_data(pdf_path):
                         if am:
                             age = am.group(0)
 
-                is_female = any(cl in ["सल", "सर", "स्त्री", "महिला"] for cl in card_slice)
+                is_female = any(cl in ["सल", "सर", "सस", "स्त्री", "महिला"] for cl in card_slice)
                 gender = "स्त्री" if is_female else "पुरुष"
 
                 epic = ""
@@ -556,9 +566,10 @@ def extract_pdf_elector_data(pdf_path):
 
                 g_idx = -1
                 for ki, cl in enumerate(card_slice):
-                    if cl in ["पचरष", "पपरष", "पुरुष", "सल", "सर", "स्त्री", "महिला"]:
+                    if cl in ["पचरष", "पपरष", "पुरुष", "सल", "सर", "सस", "स्त्री", "महिला"]:
                         g_idx = ki
                         break
+
 
 
                 after_gender = card_slice[g_idx+1:] if g_idx != -1 else []
@@ -593,7 +604,7 @@ def extract_pdf_elector_data(pdf_path):
                         "VoterName": clean_hindi_name(v_name),
                         "RelativeType": rel_type,
                         "RelativeName": clean_hindi_name(r_name),
-                        "HouseNo": house,
+                        "HouseNo": clean_hindi_name(house) if house else "-",
                         "Age": str(age),
                         "Gender": gender,
                         "EPIC": epic
