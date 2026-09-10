@@ -25,50 +25,13 @@ try:
 except ImportError:
     from extractor import extract_pdf_elector_data, export_voters_to_excel
 
-# Load master voter data from verified Excel
-excel_path = os.path.join(WORKSPACE_DIR, "beawar_ward_001_part_001.xlsx")
-if not os.path.exists(excel_path):
-    excel_path = os.path.join(SCRIPT_DIR, "template.xlsx")
-wb = openpyxl.load_workbook(excel_path, read_only=True)
-ws = wb.active
-
-voters_list = []
-rows = list(ws.iter_rows(values_only=True))
-header = rows[0]
-for r in rows[1:]:
-    if r[0] is not None:
-        voters_list.append({
-            "SerialNo": r[4] if len(r) > 4 and r[4] is not None else r[0],
-            "Ward": str(r[1]) if len(r) > 1 and r[1] is not None else "1",
-            "Part": str(r[2]) if len(r) > 2 and r[2] is not None else "1",
-            "Booth": str(r[3] or "") if len(r) > 3 else "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)",
-            "VoterName": str(r[5] or "") if len(r) > 5 else "",
-            "RelativeType": "पिता/पति",
-            "RelativeName": str(r[6] or "") if len(r) > 6 else "",
-            "HouseNo": str(r[7] or "") if len(r) > 7 else "",
-            "Age": str(r[8] or "") if len(r) > 8 else "",
-            "Gender": str(r[9] or "") if len(r) > 9 else "",
-            "EPIC": str(r[10] or "") if len(r) > 10 else ""
-        })
-wb.close()
-
-active_voters = voters_list
-deleted_voters = []
-print(f"Loaded {len(voters_list)} active voters from beawar Excel.")
-
+# Clean empty global session - only populated when user uploads a PDF
 global_session = {
-    "totalSerials": len(voters_list),
-    "activeVoters": active_voters,
-    "deletedVoters": deleted_voters,
-    "ward": "001",
-    "parts": [
-        {
-            "part": 1,
-            "booth": "1 - राजकीय उच्च माध्यमिक विद्यालय सरमालिया (कमरा नंबर 10)",
-            "totalVoters": len(voters_list),
-            "activeVoters": len(active_voters)
-        }
-    ]
+    "totalSerials": 0,
+    "activeVoters": [],
+    "deletedVoters": [],
+    "ward": "",
+    "parts": []
 }
 
 def get_grid_and_font(slips_per_page):
@@ -537,7 +500,9 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
 
-        if self.path in ["/api/upload", "/api/process-pdfs"]:
+        if self.path in ["/api/clear-session", "/api/reset"]:
+            self.handle_clear_session()
+        elif self.path in ["/api/upload", "/api/process-pdfs"]:
             self.handle_upload(post_data)
         elif self.path == "/api/preview":
             payload = json.loads(post_data.decode("utf-8")) if post_data else {}
@@ -550,6 +515,26 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_generate_pdf(payload)
         else:
             self.send_error(404, "Unknown API endpoint")
+
+    def handle_clear_session(self):
+        import gc
+        global_session.clear()
+        global_session.update({
+            "totalSerials": 0,
+            "activeVoters": [],
+            "deletedVoters": [],
+            "ward": "",
+            "parts": []
+        })
+        try:
+            for old_f in os.listdir(UPLOADS_DIR):
+                old_p = os.path.join(UPLOADS_DIR, old_f)
+                if os.path.isfile(old_p):
+                    os.remove(old_p)
+        except Exception:
+            pass
+        gc.collect()
+        self.send_json_response({"success": True, "message": "सत्र मेमोरी और कैशे पूरी तरह साफ़ कर दिया गया है।"})
 
     def handle_upload(self, post_data):
         import base64
@@ -639,6 +624,10 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def handle_preview(self, payload):
+        if not global_session.get("activeVoters"):
+            self.send_html_response("<p style='color:red;font-family:sans-serif;padding:20px;'>कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।</p>", status_code=400)
+            return
+
         candidate_post = payload.get("candidatePost", "सरपंच")
         candidate = payload.get("candidateName", "मनोज बाबेल")
         party = payload.get("partyName", "भारतीय जनता पार्टी (BJP)")
@@ -684,6 +673,10 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_html_response(html)
 
     def handle_generate_excel(self, payload):
+        if not global_session.get("activeVoters"):
+            self.send_json_response({"success": False, "error": "कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।"}, status_code=400)
+            return
+
         # Apply booth overrides if provided
         if payload.get("parts"):
             part_map = {str(p.get("part")): p.get("booth") for p in payload["parts"] if p.get("booth")}
@@ -719,6 +712,10 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json_response(resp_obj)
 
     def handle_generate_pdf(self, payload):
+        if not global_session.get("activeVoters"):
+            self.send_json_response({"success": False, "error": "कोई मतदाता सूची डेटा लोड नहीं है। कृपया पहले एक नया PDF अपलोड करें।"}, status_code=400)
+            return
+
         candidate_post = payload.get("candidatePost", "सरपंच")
         candidate = payload.get("candidateName", "मनोज बाबेल")
         party = payload.get("partyName", "भारतीय जनता पार्टी (BJP)")

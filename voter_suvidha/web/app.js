@@ -44,24 +44,33 @@ function setupDropzone() {
   });
 
   document.getElementById('btnClearFiles').addEventListener('click', () => {
-    selectedFiles = [];
-    renderFileList();
+    resetAllState();
   });
 }
 
-function handleFiles(files) {
+async function handleFiles(files) {
   const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
   if (pdfs.length === 0) {
     alert('कृपया केवल PDF (.pdf) फाइलें चुनें।');
     return;
   }
 
-  // Clear previous session memory and replace with newly uploaded file(s)
+  // Clear previous session memory on server and reset previous UI states
+  try {
+    fetch('/api/clear-session', { method: 'POST' }).catch(() => {});
+  } catch (e) {}
+
   selectedFiles = pdfs;
   extractedData = null;
 
   const summarySec = document.getElementById('summarySection');
   if (summarySec) summarySec.style.display = 'none';
+  const configSec = document.getElementById('configSection');
+  if (configSec) configSec.style.display = 'none';
+  const actionSec = document.getElementById('actionSection');
+  if (actionSec) actionSec.style.display = 'none';
+  const statusBox = document.getElementById('genStatusBox');
+  if (statusBox) statusBox.style.display = 'none';
 
   renderFileList();
 }
@@ -480,12 +489,19 @@ function showSuccessStatus(icon, title, msg, downloadUrl, filename) {
 
   dlArea.style.display = 'block';
   dlArea.innerHTML = `
-    <a href="${downloadUrl}" download="${filename}" class="btn btn-success btn-large" style="margin-right:12px;">
-      ⬇️ ${filename} डाउनलोड करें
-    </a>
-    <a href="${downloadUrl}" target="_blank" class="btn btn-secondary btn-large">
-      🖨️ सीधे ब्राउज़र में खोलें / प्रिंट करें
-    </a>
+    <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+      <a href="${downloadUrl}" download="${filename}" class="btn btn-success btn-large">
+        ⬇️ ${filename} डाउनलोड करें
+      </a>
+      <a href="${downloadUrl}" target="_blank" class="btn btn-secondary btn-large">
+        🖨️ सीधे ब्राउज़र में खोलें / प्रिंट करें
+      </a>
+    </div>
+    <div style="border-top:1px dashed #a5d6a7; padding-top:12px; margin-top:8px;">
+      <button type="button" class="btn btn-outline" style="background:#ffffff; color:#2e7d32; border-color:#81c784; font-weight:700; cursor:pointer;" onclick="resetAllState()">
+        🔄 नई वोटर लिस्ट अपलोड करें (Clear Memory & Upload New List)
+      </button>
+    </div>
   `;
   box.scrollIntoView({ behavior: 'smooth' });
 }
@@ -506,4 +522,34 @@ function showErrorStatus(msg) {
   msgEl.innerText = msg;
   msgEl.style.color = '#c62828';
   dlArea.style.display = 'none';
+}
+
+async function resetAllState() {
+  try {
+    await fetch('/api/clear-session', { method: 'POST' });
+  } catch (e) {
+    console.warn('Clear session error:', e);
+  }
+
+  selectedFiles = [];
+  extractedData = null;
+
+  const fileInput = document.getElementById('pdfFileInput');
+  if (fileInput) fileInput.value = '';
+
+  const fileListContainer = document.getElementById('fileListContainer');
+  if (fileListContainer) fileListContainer.style.display = 'none';
+  const fileList = document.getElementById('fileList');
+  if (fileList) fileList.innerHTML = '';
+
+  const summarySec = document.getElementById('summarySection');
+  if (summarySec) summarySec.style.display = 'none';
+  const configSec = document.getElementById('configSection');
+  if (configSec) configSec.style.display = 'none';
+  const actionSec = document.getElementById('actionSection');
+  if (actionSec) actionSec.style.display = 'none';
+  const statusBox = document.getElementById('genStatusBox');
+  if (statusBox) statusBox.style.display = 'none';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
