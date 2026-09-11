@@ -38,277 +38,52 @@ def get_grid_and_font(slips_per_page):
     grid_css = {
         4: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 4mm 5mm;",
         6: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); gap: 3.5mm 4.5mm;",
-        8: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 2.8mm 4mm;",
-        10: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(5, 1fr); gap: 2.2mm 3.5mm;",
-        12: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr); gap: 1.8mm 3mm;"
-    }.get(slips_per_page, "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 2.8mm 4mm;")
+        8: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 2.5mm 3.5mm;",
+        10: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(5, 1fr); gap: 2mm 3mm;",
+        12: "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(6, 1fr); gap: 1.6mm 2.5mm;"
+    }.get(slips_per_page, "grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 2.5mm 3.5mm;")
 
     font_scale = {
         4: {
-            "title": "16px", "meta": "13px", "name": "18px", "detail": "13.8px", "booth": "12.5px",
-            "c_post": "14px", "c_name": "17.5px", "c_party": "13.5px", "c_app": "11.5px",
-            "img_w": "95px", "img_h": "100px", "sym_w": "82px", "sym_h": "82px", "avatar": "60px"
+            "title": "18px", "panchayat": "14.5px", "meta": "14.5px", "serial": "15.5px",
+            "name": "22px", "detail": "15.5px", "booth": "14.5px",
+            "c_post": "15.5px", "c_name": "20px", "c_party": "15px", "c_app": "13px",
+            "img_w": "95px", "img_h": "102px", "sym_w": "80px", "sym_h": "80px", "avatar": "60px", "cut": "9px"
         },
         6: {
-            "title": "15px", "meta": "12px", "name": "16.5px", "detail": "12.5px", "booth": "11px",
-            "c_post": "12.5px", "c_name": "15px", "c_party": "12px", "c_app": "10px",
-            "img_w": "82px", "img_h": "86px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px"
+            "title": "16.5px", "panchayat": "13.5px", "meta": "13.5px", "serial": "14.5px",
+            "name": "20px", "detail": "14px", "booth": "13.2px",
+            "c_post": "14px", "c_name": "18px", "c_party": "13.5px", "c_app": "11.5px",
+            "img_w": "80px", "img_h": "86px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px", "cut": "8px"
         },
         8: {
-            "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-            "c_post": "11.5px", "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
-            "img_w": "68px", "img_h": "72px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
+            "title": "15px", "panchayat": "12px", "meta": "12.5px", "serial": "13.5px",
+            "name": "18.5px", "detail": "12.7px", "booth": "12px",
+            "c_post": "13px", "c_name": "16px", "c_party": "11.8px", "c_app": "10.5px",
+            "img_w": "62px", "img_h": "68px", "sym_w": "48px", "sym_h": "48px", "avatar": "46px", "cut": "7.5px"
         },
         10: {
-            "title": "12px", "meta": "9.5px", "name": "13px", "detail": "9.8px", "booth": "8.8px",
-            "c_post": "10px", "c_name": "11.5px", "c_party": "9.5px", "c_app": "7.8px",
-            "img_w": "56px", "img_h": "58px", "sym_w": "44px", "sym_h": "44px", "avatar": "34px"
+            "title": "13px", "panchayat": "11px", "meta": "11px", "serial": "12px",
+            "name": "15.5px", "detail": "11.5px", "booth": "10.8px",
+            "c_post": "11px", "c_name": "13.5px", "c_party": "10.5px", "c_app": "9px",
+            "img_w": "50px", "img_h": "54px", "sym_w": "42px", "sym_h": "42px", "avatar": "34px", "cut": "6.5px"
         },
         12: {
-            "title": "10.5px", "meta": "8.8px", "name": "11.8px", "detail": "8.8px", "booth": "8px",
-            "c_post": "9px", "c_name": "10.5px", "c_party": "8.5px", "c_app": "7.2px",
-            "img_w": "48px", "img_h": "50px", "sym_w": "38px", "sym_h": "38px", "avatar": "30px"
+            "title": "11.5px", "panchayat": "9.8px", "meta": "10px", "serial": "11px",
+            "name": "13.5px", "detail": "10.2px", "booth": "9.5px",
+            "c_post": "10px", "c_name": "12px", "c_party": "9.5px", "c_app": "8px",
+            "img_w": "44px", "img_h": "48px", "sym_w": "36px", "sym_h": "36px", "avatar": "30px", "cut": "6px"
         }
     }.get(slips_per_page, {
-        "title": "13.5px", "meta": "10.5px", "name": "14.5px", "detail": "11px", "booth": "9.8px",
-        "c_post": "11.5px", "c_name": "13px", "c_party": "10.5px", "c_app": "8.8px",
-        "img_w": "68px", "img_h": "72px", "sym_w": "56px", "sym_h": "56px", "avatar": "42px"
+        "title": "15px", "panchayat": "12px", "meta": "12.5px", "serial": "13.5px",
+        "name": "18px", "detail": "13px", "booth": "12.2px",
+        "c_post": "12.5px", "c_name": "15px", "c_party": "11px", "c_app": "10px",
+        "img_w": "58px", "img_h": "64px", "sym_w": "48px", "sym_h": "48px", "avatar": "42px", "cut": "7.2px"
     })
 
     return grid_css, font_scale
 
-def render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale, candidate_post="सरपंच"):
-    photo_html = f'<img class="cand-photo" src="{candidate_photo}" alt="Candidate">' if candidate_photo else '<div class="cand-avatar">👤</div>'
-    symbol_html = f'<div class="cand-symbol-frame"><img class="cand-symbol-img" src="{party_symbol}" alt="चुनाव चिन्ह"></div>' if party_symbol else ''
-
-    rel_type = v.get('RelativeType', '')
-    rel_label = f"{rel_type} का नाम" if rel_type in ['पिता', 'पति', 'माता'] else "पिता/पति का नाम"
-    gp = v.get('GramPanchayat', '')
-    gp_html = f'<span class="badge-item">पं : <strong>[ {gp} ]</strong></span>' if gp else ''
-
-    return f"""
-        <div class="slip">
-          <div class="slip-left">
-            <div class="slip-header-block">
-              <div class="slip-title">वोटर सुविधा स्लिप</div>
-              <div class="meta-row">
-                <span class="badge-item">वार्ड नं : <strong>[ {v.get('Ward', '1')} ]</strong></span>
-                <span class="badge-item">भाग : <strong>[ {v.get('Part', '1')} ]</strong></span>
-                {gp_html}
-              </div>
-              <div class="meta-row-serial">
-                <span class="badge-item serial-badge">क्रम संख्या : <strong>[ {v.get('SerialNo', '')} ]</strong></span>
-              </div>
-            </div>
-            <div class="voter-body">
-              <div class="voter-line voter-name">मतदाता का नाम : <strong>{v.get('VoterName', '')}</strong></div>
-              <div class="voter-line">{rel_label} : <span>{v.get('RelativeName', '')}</span></div>
-              <div class="voter-line">मकान नं. : <strong>{v.get('HouseNo', '')}</strong> &nbsp;|&nbsp; उम्र : <strong>{v.get('Age', '')}</strong> &nbsp;|&nbsp; लिंग : <strong>{v.get('Gender', '')}</strong></div>
-              <div class="voter-line">पहचान पत्र क्र. (EPIC) : <strong>{v.get('EPIC', '')}</strong></div>
-            </div>
-            <div class="booth-line">
-              <span class="booth-label">मतदान केंद्र :</span> {v.get('Booth', '')}
-            </div>
-          </div>
-          <div class="slip-right-box">
-            <div class="cand-post"><strong>{candidate_post} पद हेतु</strong></div>
-            <div class="cand-photo-frame">
-              {photo_html}
-            </div>
-            <div class="cand-name">{candidate}</div>
-            {symbol_html}
-            <div class="cand-party">({party})</div>
-            <div class="cand-appeal">{appeal}</div>
-          </div>
-        </div>
-    """
-
-def get_full_page_css(grid_css, font_scale):
-    return f"""
-    @page {{ size: A4 portrait; margin: 0; }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    body {{ font-family: "Nirmala UI", "Mangal", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; }}
-    .a4-page {{ width: 210mm; height: 297mm; padding: 5mm 5mm; page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }}
-    .slips-grid {{ display: grid; {grid_css} width: 100%; height: 100%; }}
-    .slip {{
-      border: 1.5px solid #111;
-      border-radius: 5px;
-      padding: 4px 5px;
-      display: flex;
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: stretch;
-      gap: 6px;
-      background: #fff;
-      overflow: hidden;
-    }}
-    .slip-left {{
-      width: 63%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
-    }}
-    .slip-header-block {{
-      border-bottom: 1.2px dashed #444;
-      padding-bottom: 2px;
-      margin-bottom: 1.5px;
-    }}
-    .slip-title {{
-      text-align: center;
-      font-weight: 900;
-      font-size: {font_scale['title']};
-      letter-spacing: 0.6px;
-      color: #000;
-      margin-bottom: 1.5px;
-    }}
-    .meta-row {{
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: {font_scale['meta']};
-      margin-bottom: 1.5px;
-    }}
-    .meta-row-serial {{
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-    }}
-    .badge-item {{
-      color: #111;
-    }}
-    .badge-item strong {{
-      color: #000;
-    }}
-    .serial-badge {{
-      background: #f4f5f7;
-      border: 1.3px solid #111;
-      border-radius: 3px;
-      padding: 0.5px 5px;
-      font-size: {font_scale['meta']};
-      font-weight: 800;
-      display: inline-block;
-    }}
-    .voter-body {{
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-evenly;
-      padding: 1px 0;
-    }}
-    .voter-line {{
-      font-size: {font_scale['detail']};
-      color: #111;
-      line-height: 1.25;
-    }}
-    .voter-name {{
-      font-size: {font_scale['name']};
-      font-weight: 900;
-      color: #000;
-    }}
-    .voter-line strong {{
-      color: #000;
-    }}
-    .booth-line {{
-      font-size: {font_scale['booth']};
-      line-height: 1.22;
-      border-top: 1.2px dashed #666;
-      padding-top: 2px;
-      margin-top: 1px;
-      color: #000;
-      background: #fafafa;
-      border-radius: 2px;
-      padding-left: 2px;
-    }}
-    .booth-label {{
-      font-weight: 900;
-      color: #000;
-    }}
-    .slip-right-box {{
-      width: 36%;
-      min-width: 36%;
-      max-width: 37%;
-      border: 1.8px solid #1a237e;
-      border-radius: 6px;
-      background: #fbfbfd;
-      padding: 3px 2px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-around;
-      text-align: center;
-      box-sizing: border-box;
-    }}
-    .cand-post {{
-      font-size: {font_scale['c_post']};
-      font-weight: 900;
-      color: #b71c1c;
-      line-height: 1.15;
-      margin-bottom: 2px;
-      text-align: center;
-      width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      letter-spacing: 0.2px;
-    }}
-    .cand-photo-frame {{
-      width: {font_scale['img_w']};
-      height: {font_scale['img_h']};
-      border-radius: 4px;
-      border: 1.2px solid #7986cb;
-      background: #e8eaf6;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      flex-shrink: 0;
-    }}
-    .cand-photo {{
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }}
-    .cand-avatar {{
-      font-size: {font_scale['avatar']};
-      line-height: 1;
-    }}
-    .cand-name {{
-      font-size: {font_scale['c_name']};
-      font-weight: 900;
-      color: #0d47a1;
-      line-height: 1.15;
-      margin: 1px 0;
-    }}
-    .cand-symbol-frame {{
-      width: {font_scale['sym_w']};
-      height: {font_scale['sym_h']};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 1px 0;
-      flex-shrink: 0;
-    }}
-    .cand-symbol-img {{
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }}
-    .cand-party {{
-      font-size: {font_scale['c_party']};
-      font-weight: 800;
-      color: #2e7d32;
-      line-height: 1.15;
-    }}
-    .cand-appeal {{
-      font-size: {font_scale['c_app']};
-      font-weight: 800;
-      color: #b71c1c;
-      line-height: 1.15;
-      margin-top: 1px;
-    }}
-    """
+from slip_layout import render_slip_html, get_full_page_css  # new slip design (see slip_layout.py)
 
 def find_browser():
     candidates = [
@@ -530,7 +305,9 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "activeVoters": [],
             "deletedVoters": [],
             "ward": "",
-            "parts": []
+            "parts": [],
+            "gramPanchayat": "",
+            "panchayatSamiti": ""
         })
         try:
             for old_f in os.listdir(UPLOADS_DIR):
@@ -551,7 +328,9 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "activeVoters": [],
             "deletedVoters": [],
             "ward": "",
-            "parts": []
+            "parts": [],
+            "gramPanchayat": "",
+            "panchayatSamiti": ""
         })
 
         # Clear previous uploaded temp PDF files from UPLOADS_DIR
@@ -567,6 +346,8 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         parts_list = []
         all_active_voters = []
         detected_ward = ""
+        detected_gp = ""
+        detected_ps = ""
         total_serials_sum = 0
         total_deleted_sum = 0
 
@@ -592,6 +373,10 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
 
                     if not detected_ward:
                         detected_ward = extracted.get("ward", "1")
+                    if not detected_gp:
+                        detected_gp = extracted.get("gramPanchayat", "")
+                    if not detected_ps:
+                        detected_ps = extracted.get("panchayatSamiti", "")
 
                     parts_list.append({
                         "part": part_num,
@@ -611,6 +396,8 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         global_session["ward"] = detected_ward if detected_ward else "1"
+        global_session["gramPanchayat"] = detected_gp
+        global_session["panchayatSamiti"] = detected_ps
         global_session["totalSerials"] = total_serials_sum
         global_session["activeVoters"] = all_active_voters
         global_session["parts"] = parts_list
@@ -637,9 +424,29 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as ex:
             print(f"Initial Excel export error: {ex}")
 
+        # Also persist metadata (ward, GP, PS, booth)
+        meta_info = {
+            "ward": global_session["ward"],
+            "gramPanchayat": detected_gp,
+            "panchayatSamiti": detected_ps,
+            "totalSerials": total_serials_sum,
+            "totalDeleted": total_deleted_sum,
+            "totalActive": len(all_active_voters),
+            "parts": parts_list
+        }
+        try:
+            with open(os.path.join(DOWNLOADS_DIR, f"metadata_ward_{ward_num}.json"), "w", encoding="utf-8") as mf:
+                json.dump(meta_info, mf, ensure_ascii=False, indent=2)
+            with open(os.path.join(WORKSPACE_DIR, f"metadata_ward_{ward_num}.json"), "w", encoding="utf-8") as mf:
+                json.dump(meta_info, mf, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
         resp_obj = {
             "success": True,
             "ward": global_session["ward"],
+            "gramPanchayat": detected_gp,
+            "panchayatSamiti": detected_ps,
             "totalSerials": global_session["totalSerials"],
             "totalDeleted": total_deleted_sum,
             "totalActive": len(all_active_voters),
@@ -662,17 +469,47 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         ]
         active_excel = next((p for p in excel_candidates if p and os.path.exists(p)), None)
 
+        voters = []
         if active_excel:
             try:
                 print(f"Loading voter records directly from Excel: {active_excel}")
                 voters = read_voters_from_excel(active_excel)
                 if voters:
                     print(f"Successfully loaded {len(voters)} voters from Excel.")
-                    return voters
             except Exception as e:
                 print(f"Warning: Failed to read from Excel ({e}), falling back to session memory")
 
-        return global_session.get("activeVoters", [])
+        if not voters:
+            voters = global_session.get("activeVoters", [])
+
+        # Recover GP / PS from metadata if not in session
+        if not global_session.get("gramPanchayat") or not global_session.get("panchayatSamiti"):
+            meta_candidates = [
+                os.path.join(DOWNLOADS_DIR, f"metadata_ward_{ward_num}.json"),
+                os.path.join(WORKSPACE_DIR, f"metadata_ward_{ward_num}.json")
+            ]
+            for mp in meta_candidates:
+                if os.path.exists(mp):
+                    try:
+                        with open(mp, "r", encoding="utf-8") as mf:
+                            mdata = json.load(mf)
+                            if not global_session.get("gramPanchayat"):
+                                global_session["gramPanchayat"] = mdata.get("gramPanchayat", "")
+                            if not global_session.get("panchayatSamiti"):
+                                global_session["panchayatSamiti"] = mdata.get("panchayatSamiti", "")
+                        break
+                    except Exception:
+                        pass
+
+        gp = global_session.get("gramPanchayat", "")
+        ps = global_session.get("panchayatSamiti", "")
+        for v in voters:
+            if not v.get("GramPanchayat") and gp:
+                v["GramPanchayat"] = gp
+            if not v.get("PanchayatSamiti") and ps:
+                v["PanchayatSamiti"] = ps
+
+        return voters
 
     def handle_preview(self, payload):
         voters_source = self.get_voters_from_active_excel_or_session()

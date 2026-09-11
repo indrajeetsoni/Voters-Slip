@@ -145,6 +145,7 @@ def export_voters_to_excel(voters, out_excel_path):
     ws.row_dimensions[1].height = 26
 
     for idx, v in enumerate(voters, 1):
+        rel_val = f"{v.get('RelativeName', '')} ({v.get('RelativeType', 'पिता')})" if v.get('RelativeType') and v.get('RelativeName') else v.get('RelativeName', '')
         row = [
             idx,
             v.get("Ward", "1"),
@@ -152,7 +153,7 @@ def export_voters_to_excel(voters, out_excel_path):
             v.get("Booth", ""),
             v.get("SerialNo", ""),
             v.get("VoterName", ""),
-            v.get("RelativeName", ""),
+            rel_val,
             v.get("HouseNo", "-"),
             v.get("Age", ""),
             v.get("Gender", ""),
@@ -256,8 +257,11 @@ def read_voters_from_excel(excel_path):
 
         rel_name = get_val("rel_name", 6)
         gender = get_val("gender", 9)
-        # Check if relation is husband based on gender
         rel_type = "पति" if gender in ["स्त्री", "महिला", "F", "Female"] else "पिता"
+        m_rel = re.search(r'\s*\((पिता|पति|माता|अन्य)\)\s*$', rel_name)
+        if m_rel:
+            rel_type = m_rel.group(1)
+            rel_name = re.sub(r'\s*\((पिता|पति|माता|अन्य)\)\s*$', '', rel_name).strip()
 
         v = {
             "Ward": get_val("ward", 1) or "1",
