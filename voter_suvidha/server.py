@@ -3,11 +3,12 @@ import socketserver
 import socket
 import json
 import os
+import re
 import sys
 import subprocess
 import tempfile
 import base64
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import openpyxl
 
 PORT = 5000
@@ -25,13 +26,39 @@ try:
 except ImportError:
     from extractor import extract_pdf_elector_data, export_voters_to_excel, read_voters_from_excel
 
+try:
+    from voter_suvidha.voter_photo_extractor import extract_voter_photos
+except ImportError:
+    from voter_photo_extractor import extract_voter_photos
+
+PHOTOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads", "voter_photos")
+
+def _sanitize_filename_part(text):
+    """Strip characters Windows forbids in filenames and tidy whitespace."""
+    text = (text or "").strip()
+    text = re.sub(r'[\\/:*?"<>|]+', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def build_voter_list_basename(ward_num, gram_panchayat, panchayat_samiti):
+    """पंचायत समिति-ग्राम पंचायत(गांव)-वार्ड नं के फॉर्मेट में फाइल का नाम
+    बनाता है, जैसे 'जैतारण-फालका-9.xlsx' / 'जैतारण-फालका-9.pdf'। जो हिस्सा
+    PDF से नहीं मिला उसकी जगह एक सुरक्षित default डाला जाता है ताकि नाम
+    कभी खाली न रहे।"""
+    ps = _sanitize_filename_part(panchayat_samiti) or "पंचायत-समिति"
+    gp = _sanitize_filename_part(gram_panchayat) or "गांव"
+    ward = _sanitize_filename_part(str(ward_num)) or "1"
+    return f"{ps}-{gp}-{ward}"
+
 # Clean empty global session - only populated when user uploads a PDF
 global_session = {
     "totalSerials": 0,
     "activeVoters": [],
     "deletedVoters": [],
     "ward": "",
-    "parts": []
+    "parts": [],
+    "voterPhotosByEpic": {},
+    "voterPhotosBySerial": {}
 }
 
 def get_grid_and_font(slips_per_page):
@@ -48,37 +75,43 @@ def get_grid_and_font(slips_per_page):
             "title": "18px", "panchayat": "14.5px", "meta": "14.5px", "serial": "15.5px",
             "name": "22px", "detail": "15.5px", "booth": "14.5px",
             "c_post": "15.5px", "c_name": "20px", "c_party": "15px", "c_app": "13px",
-            "img_w": "95px", "img_h": "102px", "sym_w": "80px", "sym_h": "80px", "avatar": "60px", "cut": "9px"
+            "img_w": "95px", "img_h": "102px", "sym_w": "80px", "sym_h": "80px", "avatar": "60px", "cut": "9px",
+            "vphoto_w": "88px", "vphoto_h": "100px"
         },
         6: {
             "title": "16.5px", "panchayat": "13.5px", "meta": "13.5px", "serial": "14.5px",
             "name": "20px", "detail": "14px", "booth": "13.2px",
             "c_post": "14px", "c_name": "18px", "c_party": "13.5px", "c_app": "11.5px",
-            "img_w": "80px", "img_h": "86px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px", "cut": "8px"
+            "img_w": "80px", "img_h": "86px", "sym_w": "68px", "sym_h": "68px", "avatar": "52px", "cut": "8px",
+            "vphoto_w": "74px", "vphoto_h": "84px"
         },
         8: {
             "title": "15px", "panchayat": "12px", "meta": "12.5px", "serial": "13.5px",
             "name": "18.5px", "detail": "12.7px", "booth": "12px",
             "c_post": "13px", "c_name": "16px", "c_party": "11.8px", "c_app": "10.5px",
-            "img_w": "62px", "img_h": "68px", "sym_w": "48px", "sym_h": "48px", "avatar": "46px", "cut": "7.5px"
+            "img_w": "62px", "img_h": "68px", "sym_w": "48px", "sym_h": "48px", "avatar": "46px", "cut": "7.5px",
+            "vphoto_w": "58px", "vphoto_h": "66px"
         },
         10: {
             "title": "13px", "panchayat": "11px", "meta": "11px", "serial": "12px",
             "name": "15.5px", "detail": "11.5px", "booth": "10.8px",
             "c_post": "11px", "c_name": "13.5px", "c_party": "10.5px", "c_app": "9px",
-            "img_w": "50px", "img_h": "54px", "sym_w": "42px", "sym_h": "42px", "avatar": "34px", "cut": "6.5px"
+            "img_w": "50px", "img_h": "54px", "sym_w": "42px", "sym_h": "42px", "avatar": "34px", "cut": "6.5px",
+            "vphoto_w": "46px", "vphoto_h": "52px"
         },
         12: {
             "title": "11.5px", "panchayat": "9.8px", "meta": "10px", "serial": "11px",
             "name": "13.5px", "detail": "10.2px", "booth": "9.5px",
             "c_post": "10px", "c_name": "12px", "c_party": "9.5px", "c_app": "8px",
-            "img_w": "44px", "img_h": "48px", "sym_w": "36px", "sym_h": "36px", "avatar": "30px", "cut": "6px"
+            "img_w": "44px", "img_h": "48px", "sym_w": "36px", "sym_h": "36px", "avatar": "30px", "cut": "6px",
+            "vphoto_w": "40px", "vphoto_h": "46px"
         }
     }.get(slips_per_page, {
         "title": "15px", "panchayat": "12px", "meta": "12.5px", "serial": "13.5px",
         "name": "18px", "detail": "13px", "booth": "12.2px",
         "c_post": "12.5px", "c_name": "15px", "c_party": "11px", "c_app": "10px",
-        "img_w": "58px", "img_h": "64px", "sym_w": "48px", "sym_h": "48px", "avatar": "42px", "cut": "7.2px"
+        "img_w": "58px", "img_h": "64px", "sym_w": "48px", "sym_h": "48px", "avatar": "42px", "cut": "7.2px",
+        "vphoto_w": "54px", "vphoto_h": "62px"
     })
 
     return grid_css, font_scale
@@ -134,6 +167,29 @@ def save_base64_image_to_temp_file(data_uri, prefix):
             return data_uri
     return data_uri
 
+def path_to_file_url(path):
+    """Turn an on-disk photo path (already extracted from the WithPhoto
+    PDF) into the same file:/// form the browser-print step expects for
+    every other image on the slip."""
+    if not path or not os.path.exists(path):
+        return ""
+    norm_path = os.path.abspath(path).replace("\\", "/")
+    return f"file:///{quote(norm_path, safe=':/')}"
+
+def resolve_voter_photo_url(v, by_epic, by_serial):
+    """EPIC is unique across the whole roll, so it is tried first; the
+    serial-number map is only a fallback for supplement entries that carry
+    no EPIC yet (see voter_photo_extractor.py)."""
+    if not by_epic and not by_serial:
+        return ""
+    epic = str(v.get("EPIC", "") or "").strip()
+    if epic and epic in by_epic:
+        return path_to_file_url(by_epic[epic])
+    serial = str(v.get("SerialNo", "") or "").strip()
+    if serial and serial in by_serial:
+        return path_to_file_url(by_serial[serial])
+    return ""
+
 class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -143,7 +199,9 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         clean_path = self.path.split('?', 1)[0].split('#', 1)[0]
         if clean_path.startswith('/downloads/'):
-            filename = os.path.basename(clean_path)
+            # self.path is percent-encoded (spaces -> %20, Devanagari -> %E0..),
+            # so it must be decoded before it can match the real filename on disk.
+            filename = os.path.basename(unquote(clean_path))
             target_path = None
             for d in [DOWNLOADS_DIR, WORKSPACE_DIR, os.path.join(WEB_DIR, "downloads")]:
                 candidate = os.path.join(d, filename)
@@ -199,8 +257,15 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(length))
         if status_code == 206:
             self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
-        
-        self.send_header("Content-Disposition", f'inline; filename="{filename}"')
+
+        # HTTP headers must be latin-1 — Devanagari filenames (जैतारण-फालका-9.pdf)
+        # can't go in a plain filename="..." param, so we send an ASCII fallback
+        # plus the real UTF-8 name via the RFC 6266 filename*= form.
+        ascii_fallback = filename.encode('ascii', 'ignore').decode('ascii').strip() or "voter-suvidha-download"
+        self.send_header(
+            "Content-Disposition",
+            f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
+        )
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Connection", "close")
         self.close_connection = True
@@ -236,7 +301,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
     def translate_path(self, path):
         clean_path = path.split('?', 1)[0].split('#', 1)[0]
         if clean_path.startswith('/downloads/'):
-            filename = os.path.basename(clean_path)
+            filename = os.path.basename(unquote(clean_path))
             for d in [DOWNLOADS_DIR, WORKSPACE_DIR, os.path.join(WEB_DIR, "downloads")]:
                 candidate = os.path.join(d, filename)
                 if os.path.exists(candidate):
@@ -307,13 +372,21 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "ward": "",
             "parts": [],
             "gramPanchayat": "",
-            "panchayatSamiti": ""
+            "panchayatSamiti": "",
+            "voterPhotosByEpic": {},
+            "voterPhotosBySerial": {}
         })
         try:
             for old_f in os.listdir(UPLOADS_DIR):
                 old_p = os.path.join(UPLOADS_DIR, old_f)
                 if os.path.isfile(old_p):
                     os.remove(old_p)
+        except Exception:
+            pass
+        try:
+            import shutil
+            if os.path.isdir(PHOTOS_DIR):
+                shutil.rmtree(PHOTOS_DIR, ignore_errors=True)
         except Exception:
             pass
         gc.collect()
@@ -330,7 +403,9 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "ward": "",
             "parts": [],
             "gramPanchayat": "",
-            "panchayatSamiti": ""
+            "panchayatSamiti": "",
+            "voterPhotosByEpic": {},
+            "voterPhotosBySerial": {}
         })
 
         # Clear previous uploaded temp PDF files from UPLOADS_DIR
@@ -350,6 +425,8 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         detected_ps = ""
         total_serials_sum = 0
         total_deleted_sum = 0
+        photos_by_epic = {}
+        photos_by_serial = {}
 
         try:
             payload = json.loads(post_data.decode("utf-8")) if post_data else {}
@@ -390,10 +467,28 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
                     total_deleted_sum += part_del
                     all_active_voters.extend(part_voters)
 
+                    # यही अपलोड की गई PDF अगर फोटो वाली (WithPhoto) निर्वाचक
+                    # नामावली है तो हर मतदाता की फोटो EPIC / क्रम संख्या से
+                    # मिलाकर निकाल ली जाती है (voter_photo_extractor.py)।
+                    # सामान्य (बिना फोटो वाली) PDF पर यह सिर्फ खाली dict
+                    # लौटाता है, कोई dummy/placeholder फोटो नहीं जोड़ी जाती।
+                    try:
+                        epic_map, serial_map = extract_voter_photos(target_path, PHOTOS_DIR)
+                        if epic_map or serial_map:
+                            photos_by_epic.update(epic_map)
+                            for s, p in serial_map.items():
+                                photos_by_serial.setdefault(s, p)
+                            print(f"Extracted {len(epic_map)} voter photos (by EPIC) from {fn}")
+                    except Exception as photo_ex:
+                        print(f"Voter-photo extraction skipped for {fn}: {photo_ex}")
+
         except Exception as e:
             print(f"Upload processing error: {e}")
             self.send_json_response({"success": False, "error": str(e)}, status_code=500)
             return
+
+        global_session["voterPhotosByEpic"] = photos_by_epic
+        global_session["voterPhotosBySerial"] = photos_by_serial
 
         global_session["ward"] = detected_ward if detected_ward else "1"
         global_session["gramPanchayat"] = detected_gp
@@ -403,9 +498,13 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         global_session["parts"] = parts_list
         global_session["deletedVoters"] = list(range(total_deleted_sum))
 
-        # Auto-generate 12-column master Excel file immediately upon upload
+        # फाइल नाम फॉर्मेट: पंचायत समिति नाम-गांव (ग्राम पंचायत) नाम-वार्ड नं
         ward_num = global_session["ward"]
-        out_excel_name = f"voter_list_ward_{ward_num}.xlsx"
+        output_basename = build_voter_list_basename(ward_num, detected_gp, detected_ps)
+        global_session["outputBasename"] = output_basename
+
+        # Auto-generate 12-column master Excel file immediately upon upload
+        out_excel_name = f"{output_basename}.xlsx"
         dst_excel = os.path.join(DOWNLOADS_DIR, out_excel_name)
         ws_excel = os.path.join(WORKSPACE_DIR, out_excel_name)
         web_dl_dir = os.path.join(WEB_DIR, "downloads")
@@ -442,6 +541,8 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             pass
 
+        photos_matched = sum(1 for v in all_active_voters if resolve_voter_photo_url(v, photos_by_epic, photos_by_serial))
+
         resp_obj = {
             "success": True,
             "ward": global_session["ward"],
@@ -455,14 +556,36 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             "parts": parts_list,
             "excelUrl": excel_url,
             "excelFilename": out_excel_name,
-            "message": f"मतदाता सूची (वार्ड {global_session['ward']}) सफलतापूर्वक विश्लेषित एवं 12-कॉलम एक्सेल तैयार!"
+            "photosMatched": photos_matched,
+            "message": f"मतदाता सूची (वार्ड {global_session['ward']}) सफलतापूर्वक विश्लेषित एवं 12-कॉलम एक्सेल तैयार!" + (
+                f" इस PDF में {photos_matched} मतदाताओं की फोटो भी मिल गई — पर्ची में अपने आप लग जाएगी।" if photos_matched else ""
+            )
         }
         self.send_json_response(resp_obj)
 
+    def _output_basename(self):
+        """वर्तमान session के लिए 'पंचायत समिति-गांव-वार्ड नं' फॉर्मेट वाला
+        बेस फाइल-नाम (extension के बिना), Excel और PDF दोनों के लिए एक जैसा।"""
+        basename = global_session.get("outputBasename")
+        if basename:
+            return basename
+        basename = build_voter_list_basename(
+            global_session.get("ward", "1"),
+            global_session.get("gramPanchayat", ""),
+            global_session.get("panchayatSamiti", ""))
+        global_session["outputBasename"] = basename
+        return basename
+
     def get_voters_from_active_excel_or_session(self):
         ward_num = global_session.get("ward", "1")
+        basename = global_session.get("outputBasename") or build_voter_list_basename(
+            ward_num, global_session.get("gramPanchayat", ""), global_session.get("panchayatSamiti", ""))
         excel_candidates = [
             global_session.get("excelPath"),
+            os.path.join(DOWNLOADS_DIR, f"{basename}.xlsx"),
+            os.path.join(WORKSPACE_DIR, f"{basename}.xlsx"),
+            os.path.join(WEB_DIR, "downloads", f"{basename}.xlsx"),
+            # पुराने नामकरण से बनी फाइलों के साथ भी काम करता रहे (backward compatibility)
             os.path.join(DOWNLOADS_DIR, f"voter_list_ward_{ward_num}.xlsx"),
             os.path.join(WORKSPACE_DIR, f"voter_list_ward_{ward_num}.xlsx"),
             os.path.join(WEB_DIR, "downloads", f"voter_list_ward_{ward_num}.xlsx")
@@ -527,10 +650,14 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
 
         voters = voters_source[:slips_per_page]
         grid_css, font_scale = get_grid_and_font(slips_per_page)
-        
+
+        photos_by_epic = global_session.get("voterPhotosByEpic", {})
+        photos_by_serial = global_session.get("voterPhotosBySerial", {})
+
         slips_html = ""
         for v in voters:
-            slips_html += render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale, candidate_post)
+            v_photo_url = resolve_voter_photo_url(v, photos_by_epic, photos_by_serial)
+            slips_html += render_slip_html(v, candidate, party, appeal, candidate_photo, party_symbol, font_scale, candidate_post, voter_photo=v_photo_url)
 
         css_text = get_full_page_css(grid_css, font_scale)
         html = f"""<!DOCTYPE html>
@@ -559,7 +686,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         ward_num = global_session.get("ward", "1")
-        out_filename = f"voter_list_ward_{ward_num}.xlsx"
+        out_filename = f"{self._output_basename()}.xlsx"
         dst_excel = os.path.join(DOWNLOADS_DIR, out_filename)
         ws_excel = os.path.join(WORKSPACE_DIR, out_filename)
         web_dl_dir = os.path.join(WEB_DIR, "downloads")
@@ -600,7 +727,7 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         party_symbol = payload.get("partySymbol", "")
 
         ward_num = global_session.get("ward", "1")
-        out_filename = f"voter_slips_ward_{ward_num}.pdf"
+        out_filename = f"{self._output_basename()}.pdf"
         dst_pdf = os.path.join(DOWNLOADS_DIR, out_filename)
 
         print(f"Generating PDF slips directly from Excel records ({len(voters_source)} voters)...")
@@ -640,11 +767,15 @@ class VoterSuvidhaHandler(http.server.SimpleHTTPRequestHandler):
         cand_photo_url = save_base64_image_to_temp_file(candidate_photo, "voter_cand_photo")
         party_sym_url = save_base64_image_to_temp_file(party_symbol, "voter_party_symbol")
 
+        photos_by_epic = global_session.get("voterPhotosByEpic", {})
+        photos_by_serial = global_session.get("voterPhotosBySerial", {})
+
         html_body = ""
         for chunk in chunks:
             slips_html = ""
             for v in chunk:
-                slips_html += render_slip_html(v, candidate, party, appeal, cand_photo_url, party_sym_url, font_scale, candidate_post)
+                v_photo_url = resolve_voter_photo_url(v, photos_by_epic, photos_by_serial)
+                slips_html += render_slip_html(v, candidate, party, appeal, cand_photo_url, party_sym_url, font_scale, candidate_post, voter_photo=v_photo_url)
 
             if len(chunk) < chunk_size:
                 for _ in range(chunk_size - len(chunk)):

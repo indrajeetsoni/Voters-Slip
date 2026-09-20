@@ -33,7 +33,7 @@
         <div class="step-circle">1</div>
         <div>
           <h2>वार्ड मतदाता सूची (PDF) अपलोड करें</h2>
-          <p class="step-desc">वार्ड के एक या एक से अधिक भाग (Parts) की आधिकारिक वोटर लिस्ट PDF यहाँ अपलोड करें</p>
+          <p class="step-desc">वार्ड के एक या एक से अधिक भाग (Parts) की आधिकारिक वोटर लिस्ट PDF यहाँ अपलोड करें। यदि इसमें मतदाताओं की फोटो है तो वह अपने-आप पहचानकर पर्ची में लगा दी जाएगी — फोटो न हो तो पर्ची पहले जैसी ही बनेगी।</p>
         </div>
       </div>
 
@@ -149,8 +149,9 @@
           <label for="candidateNameInput">
             <strong>प्रत्याशी का नाम (Candidate Name):</strong>
           </label>
-          <input type="text" id="candidateNameInput" class="form-control" value="मनोज बाबेल" placeholder="उदा. मनोज बाबेल">
-          <small class="field-hint">पर्ची के दाईं ओर (Right Box) बोल्ड अक्षरों में प्रदर्शित होगा</small>
+          <input type="text" id="candidateNameInput" class="form-control" placeholder="उदा. मनोज बाबेल" list="candidateNameHistory" autocomplete="off">
+          <datalist id="candidateNameHistory"></datalist>
+          <small class="field-hint">पर्ची के दाईं ओर (Right Box) बोल्ड अक्षरों में प्रदर्शित होगा — पहले भरे नाम डबल-क्लिक करने पर सूची में दिखेंगे</small>
         </div>
 
         <!-- Party Name -->
@@ -158,8 +159,9 @@
           <label for="partyNameInput">
             <strong>पार्टी / दल का नाम (Party Name):</strong>
           </label>
-          <input type="text" id="partyNameInput" class="form-control" value="भारतीय जनता पार्टी (BJP)" placeholder="उदा. भारतीय जनता पार्टी (BJP)">
-          <small class="field-hint">प्रत्याशी नाम के साथ प्रदर्शित होगा</small>
+          <input type="text" id="partyNameInput" class="form-control" placeholder="उदा. भारतीय जनता पार्टी (BJP)" list="partyNameHistory" autocomplete="off">
+          <datalist id="partyNameHistory"></datalist>
+          <small class="field-hint">प्रत्याशी नाम के साथ प्रदर्शित होगा — पहले भरे नाम डबल-क्लिक करने पर सूची में दिखेंगे</small>
         </div>
 
         <!-- Candidate Photo -->

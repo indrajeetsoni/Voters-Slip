@@ -14,6 +14,13 @@ CHANGES IN THIS VERSION
   * spacing tightened throughout so more fits without shrinking the text
   * a vertical dashed cut line before the candidate box, carrying the
     message "मतदान देने जाने से पूर्व यहाँ से काटें" printed sideways
+  * the voter's own photo (from the WithPhoto roll PDF, matched by EPIC /
+    serial number — see voter_photo_extractor.py) sits beside the voter's
+    name and father's/husband's name, sized like the candidate photo box.
+    Only one PDF is ever uploaded (server.py runs the photo extractor on
+    it automatically); if that PDF has no photos, voter_photo is empty for
+    every voter and the name block below falls back to the exact original
+    single-column layout — no placeholder icon, no empty box, no shift.
 
 font_scale keys are read with .get() and sensible defaults, so this works
 with any of the 4 / 6 / 8 / 10 / 12 slips-per-page presets.
@@ -23,7 +30,8 @@ CUT_MESSAGE = "मतदान से पूर्व यहाँ से का
 
 
 def render_slip_html(v, candidate, party, appeal, candidate_photo,
-                     party_symbol, font_scale, candidate_post="सरपंच"):
+                     party_symbol, font_scale, candidate_post="सरपंच",
+                     voter_photo=""):
     photo_html = (
         f'<img class="cand-photo" src="{candidate_photo}" alt="Candidate">'
         if candidate_photo else '<div class="cand-avatar">&#128100;</div>'
@@ -47,6 +55,29 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo,
     ps_html = (f'<div class="ps-line"><span class="meta-lbl">पंचायत समिति :</span> <strong>{ps}</strong></div>'
                if ps else '')
 
+    name_line = f'<div class="voter-line voter-name">{v.get("VoterName", "")}</div>'
+    rel_line = f'<div class="voter-line"><span class="meta-lbl">{rel_label} :</span> <strong>{v.get("RelativeName", "")}</strong></div>'
+
+    if voter_photo:
+        # Uploaded PDF had a matching photo for this voter — split the row
+        # so the photo sits beside the name / father's name, like the
+        # candidate photo does on the right side of the slip.
+        name_block_html = f"""
+              <div class="voter-top-row">
+                <div class="voter-top-text">
+                  {name_line}
+                  {rel_line}
+                </div>
+                <div class="voter-photo-frame"><img class="voter-photo" src="{voter_photo}" alt="Voter"></div>
+              </div>"""
+    else:
+        # No photo for this voter (or the uploaded PDF has no photos at
+        # all) — render exactly as before the photo feature existed. No
+        # placeholder icon and no empty box eating into the layout.
+        name_block_html = f"""
+              {name_line}
+              {rel_line}"""
+
     return f"""
         <div class="slip">
           <div class="slip-left">
@@ -60,8 +91,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo,
               </div>
             </div>
             <div class="voter-body">
-              <div class="voter-line voter-name">{v.get('VoterName', '')}</div>
-              <div class="voter-line"><span class="meta-lbl">{rel_label} :</span> <strong>{v.get('RelativeName', '')}</strong></div>
+              {name_block_html}
               <div class="voter-line"><span class="meta-lbl">मकान नं. :</span> <strong>{v.get('HouseNo', '')}</strong> | <span class="meta-lbl">उम्र :</span> <strong>{v.get('Age', '')}</strong> | <span class="meta-lbl">लिंग :</span> <strong>{v.get('Gender', '')}</strong></div>
               <div class="voter-line"><span class="meta-lbl">EPIC :</span> <strong>{v.get('EPIC', '')}</strong></div>
             </div>
@@ -177,6 +207,39 @@ def get_full_page_css(grid_css, font_scale):
       padding: 2px 0;
       min-width: 0;
     }}
+    /* name + father's/husband's name sit to the left; the voter's own
+       photo (from the WithPhoto roll PDF, matched by EPIC / serial number
+       — see voter_photo_extractor.py) sits to their right, sized like the
+       candidate photo box so it reads as a proper ID photo, not an icon */
+    .voter-top-row {{
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 5px;
+      min-width: 0;
+    }}
+    .voter-top-text {{
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      overflow: hidden;
+    }}
+    .voter-photo-frame {{
+      flex: 0 0 auto;
+      width: {f('vphoto_w', '54px')};
+      height: {f('vphoto_h', '62px')};
+      border-radius: 4px;
+      border: 1.2px solid #7986cb;
+      background: #e8eaf6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }}
+    .voter-photo {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
     .voter-line {{
       font-size: {f('detail', '12.7px')};
       color: #111;

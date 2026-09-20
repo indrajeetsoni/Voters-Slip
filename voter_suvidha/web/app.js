@@ -13,7 +13,70 @@ document.addEventListener('DOMContentLoaded', () => {
   setupActionButtons();
   setupCandidatePhoto();
   setupPartySymbol();
+  setupNameHistoryInputs();
 });
+
+// ------------------------------------------------------------------
+// प्रत्याशी का नाम / पार्टी का नाम — पहले भरे गए मानों की history
+// (कोई भी default value फील्ड में नहीं दिखती; browser के अपने datalist
+// dropdown से टाइप करते समय मिलते-जुलते पुराने मान अपने-आप फ़िल्टर होकर
+// दिख जाते हैं, और double-click पर पूरी सूची खुल जाती है)
+// ------------------------------------------------------------------
+const NAME_HISTORY_FIELDS = [
+  { inputId: 'candidateNameInput', datalistId: 'candidateNameHistory', storageKey: 'voterSuvidha_candidateNameHistory' },
+  { inputId: 'partyNameInput', datalistId: 'partyNameHistory', storageKey: 'voterSuvidha_partyNameHistory' }
+];
+
+function loadNameHistory(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveNameToHistory(storageKey, value) {
+  const clean = (value || '').trim();
+  if (!clean) return;
+  let history = loadNameHistory(storageKey);
+  history = history.filter(v => v !== clean);
+  history.unshift(clean);
+  if (history.length > 20) history = history.slice(0, 20);
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(history));
+  } catch (e) { /* storage full/unavailable — ignore silently */ }
+}
+
+function populateNameDatalist(datalistId, storageKey) {
+  const datalist = document.getElementById(datalistId);
+  if (!datalist) return;
+  const history = loadNameHistory(storageKey);
+  datalist.innerHTML = history.map(v => `<option value="${v.replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
+function setupNameHistoryInputs() {
+  NAME_HISTORY_FIELDS.forEach(({ inputId, datalistId, storageKey }) => {
+    populateNameDatalist(datalistId, storageKey);
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    // Double-click explicitly pops the full history dropdown (in addition
+    // to Chrome/Edge already filtering matches as the user types).
+    input.addEventListener('dblclick', () => {
+      try {
+        if (typeof input.showPicker === 'function') input.showPicker();
+      } catch (e) { /* some browsers restrict showPicker — ignore */ }
+    });
+  });
+}
+
+function recordNameHistoryEntries(candidateName, partyName) {
+  saveNameToHistory('voterSuvidha_candidateNameHistory', candidateName);
+  saveNameToHistory('voterSuvidha_partyNameHistory', partyName);
+  populateNameDatalist('candidateNameHistory', 'voterSuvidha_candidateNameHistory');
+  populateNameDatalist('partyNameHistory', 'voterSuvidha_partyNameHistory');
+}
 
 // Dropzone & File Selection
 function setupDropzone() {
@@ -196,7 +259,7 @@ async function processUploadedFiles() {
     }
 
     procTitle.innerText = 'मतदाता नामावली से डेटा निष्कर्षण (Extraction) जारी...';
-    procDetail.innerText = 'कृती देव फॉन्ट डिकोडिंग और विलोपन सूची (Deleted Voters) की छंटनी की जा रही है...';
+    procDetail.innerText = 'कृती देव फॉन्ट डिकोडिंग, विलोपन सूची की छंटनी और मतदाता फोटो की पहचान जारी है...';
 
     const resp = await fetch('/api/upload', {
       method: 'POST',
@@ -213,6 +276,9 @@ async function processUploadedFiles() {
     extractedData = result;
     if (result.totalActive === 0) {
       alert('⚠️ ध्यान दें: अपलोड की गई फाइल ("' + (selectedFiles[0]?.name || '') + '") से कोई मतदाता नहीं मिले।\n\nऐसा प्रतीत होता है कि आपने चुनाव आयोग की मूल निर्वाचक नामावली की जगह पूर्व में जनरेट की गई वोटर पर्ची (Generated Voter Slips PDF) चुन ली है।\n\nकृपया मूल मतदाता सूची PDF (जैसे: BALOONDA-Ward No-005.pdf या GHORAWAR-Ward No-001.pdf) अपलोड करें।');
+    }
+    if (result.photosMatched > 0) {
+      alert(`📷 इस PDF में फोटो मिली: ${result.photosMatched} / ${result.totalActive} मतदाताओं की फोटो पर्ची में अपने-आप लग जाएगी।`);
     }
     renderSummary(result);
 
@@ -331,10 +397,13 @@ function setupPartySymbol() {
 
 function getConfigurationPayload() {
   const candidatePost = document.getElementById('candidatePostSelect')?.value || 'सरपंच';
-  const candidateName = document.getElementById('candidateNameInput').value.trim() || 'मनोज बाबेल';
-  const partyName = document.getElementById('partyNameInput').value.trim() || 'भारतीय जनता पार्टी (BJP)';
+  const candidateName = document.getElementById('candidateNameInput').value.trim();
+  const partyName = document.getElementById('partyNameInput').value.trim();
   const bottomMessage = document.getElementById('bottomMessageInput').value.trim() || 'को अपना अमूल्य वोट देकर भारी मतों से विजयी बनाएं!';
   const slipsPerPage = parseInt(document.querySelector('input[name="slipsPerPage"]:checked')?.value || '8', 10);
+
+  // इन्हें अगली बार डबल-क्लिक पर dropdown में दिखाने के लिए history में सहेजें
+  recordNameHistoryEntries(candidateName, partyName);
 
   // Booth addresses are automatically extracted from the uploaded PDF
   const parts = [];
