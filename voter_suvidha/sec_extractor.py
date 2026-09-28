@@ -337,9 +337,12 @@ def extract(pdf_path):
         it = page_items(doc, pno)
         dev = _dev_fonts(doc, it)
         rows = rows_of(it, dev)
-        for k in sorted(rows, reverse=True):
-            line = re.sub(r"\s+", " ",
-                          "".join(text_of(i, dev) for i in rows[k])).strip()
+        ordered_lines = [
+            re.sub(r"\s+", " ", "".join(text_of(i, dev) for i in rows[k])).strip()
+            for k in sorted(rows, reverse=True)
+        ]
+
+        for row_idx, line in enumerate(ordered_lines):
             if not samiti:
                 m_ps = re.search(r"पंचायत\s*समिति\s*का\s*नाम\s*:\s*(.+?)(?:पं[॰\.]|पं\s*स|सदस्य|$|:)", line)
                 if m_ps:
@@ -349,9 +352,9 @@ def extract(pdf_path):
                 if m_gp:
                     val = m_gp.group(1).strip()
                     if "घोाव" in val:
-                        val = "घोड़ावड़"
+                        val = "घोड़ावड़"
                     elif "बडाखेडा" in val:
-                        val = "बड़ाखेड़ा (खेड़ा कलां)"
+                        val = "बड़ाखेड़ा (खेड़ा कलां)"
                     elif "बलून्दा" in val:
                         val = "बलून्दा"
                     gram = val
@@ -364,6 +367,19 @@ def extract(pdf_path):
                     booth = line.split(":", 1)[-1].strip()
                 elif re.match(r"^\d+\s*-", line):
                     booth = line.strip()
+                if booth:
+                    # The booth address can wrap onto a 2nd or 3rd printed
+                    # row in the source PDF (e.g. "...(कमरा न.1) (नया" then
+                    # "भवन)" on the next line). Pull those rows in too, as
+                    # long as they read as a continuation and not the start
+                    # of a new labelled field or the voter table below.
+                    for cont in ordered_lines[row_idx + 1: row_idx + 3]:
+                        if not cont or ":" in cont or "मतदाताओं" in cont:
+                            break
+                        if len(cont) > 60:
+                            break
+                        booth = f"{booth} {cont}".strip()
+
 
     # Fallbacks from filename
     fn_upper = os.path.basename(pdf_path).upper()

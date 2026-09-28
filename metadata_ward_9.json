@@ -1,0 +1,17 @@
+{
+  "ward": "9",
+  "gramPanchayat": "फालका",
+  "panchayatSamiti": "जैतारण",
+  "totalSerials": 285,
+  "totalDeleted": 3,
+  "totalActive": 282,
+  "parts": [
+    {
+      "part": "1",
+      "booth": "41 - राजकीय उ मायामिक विद्यालय फालका कमरा नम्बर 4",
+      "totalSerials": 285,
+      "deletedCount": 3,
+      "activeCount": 282
+    }
+  ]
+}

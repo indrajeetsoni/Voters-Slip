@@ -29,18 +29,41 @@ with any of the 4 / 6 / 8 / 10 / 12 slips-per-page presets.
 CUT_MESSAGE = "मतदान से पूर्व यहाँ से काटें"
 
 
+def _has_image(data_uri: str) -> bool:
+    """True only for a value that actually carries image bytes.
+
+    Guards against a broken-image icon showing up when no photo/symbol was
+    uploaded. The literal empty string "" is the normal "nothing uploaded"
+    case, but a data URI can also arrive as just the header with nothing
+    after the comma — e.g. "data:image/png;base64," — which is non-empty,
+    passes a plain `if value:` check, yet is not a decodable image. Both
+    the live preview (which embeds this string directly as <img src=...>)
+    and the server's temp-file cache need this same check, since the
+    preview never goes through the server's file-caching step at all.
+    """
+    if not data_uri or not isinstance(data_uri, str):
+        return False
+    s = data_uri.strip()
+    if s in ("", "undefined", "null", "false", "0"):
+        return False
+    if s.startswith("data:"):
+        _, _, payload = s.partition(",")
+        return bool(payload.strip())
+    return True
+
+
 def render_slip_html(v, candidate, party, appeal, candidate_photo,
                      party_symbol, font_scale, candidate_post="सरपंच",
                      voter_photo=""):
     photo_html = (
         f'<img class="cand-photo" src="{candidate_photo}" alt="Candidate">'
-        if candidate_photo else '<div class="cand-avatar">&#128100;</div>'
+        if _has_image(candidate_photo) else '<div class="cand-avatar">&#128100;</div>'
     )
     symbol_html = (
         f'<div class="cand-symbol-frame">'
         f'<img class="cand-symbol-img" src="{party_symbol}" alt="चुनाव चिन्ह">'
         f'</div>'
-        if party_symbol else ''
+        if _has_image(party_symbol) else ''
     )
 
     rel_type = v.get("RelativeType", "")
@@ -58,7 +81,7 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo,
     name_line = f'<div class="voter-line voter-name">{v.get("VoterName", "")}</div>'
     rel_line = f'<div class="voter-line"><span class="meta-lbl">{rel_label} :</span> <strong>{v.get("RelativeName", "")}</strong></div>'
 
-    if voter_photo:
+    if _has_image(voter_photo):
         # Uploaded PDF had a matching photo for this voter — split the row
         # so the photo sits beside the name / father's name, like the
         # candidate photo does on the right side of the slip.
@@ -82,7 +105,6 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo,
         <div class="slip">
           <div class="slip-left">
             <div class="slip-header-block">
-              <div class="slip-title">वोटर सुविधा स्लिप</div>
               {gp_html}
               {ps_html}
               <div class="meta-row">
@@ -99,12 +121,14 @@ def render_slip_html(v, candidate, party, appeal, candidate_photo,
           </div>
           <div class="cut-strip"><span class="cut-text">{CUT_MESSAGE}</span></div>
           <div class="slip-right-box">
-            <div class="cand-post">{candidate_post} पद हेतु</div>
-            <div class="cand-photo-frame">{photo_html}</div>
-            <div class="cand-name">{candidate}</div>
-            {symbol_html}
-            <div class="cand-party">({party})</div>
-            <div class="cand-appeal">{appeal}</div>
+            <div class="cand-stack">
+              <div class="cand-post">{candidate_post} पद हेतु</div>
+              <div class="cand-photo-frame">{photo_html}</div>
+              <div class="cand-name">{candidate}</div>
+              {symbol_html}
+              <div class="cand-party">({party})</div>
+              <div class="cand-appeal">{appeal}</div>
+            </div>
           </div>
         </div>
     """
@@ -146,26 +170,18 @@ def get_full_page_css(grid_css, font_scale):
     }}
     .slip-header-block {{
       border-bottom: 1.2px dashed #444;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
-    }}
-    .slip-title {{
-      text-align: center;
-      font-weight: 900;
-      font-size: {f('title', '15px')};
-      letter-spacing: 0.3px;
-      color: #000;
-      line-height: 1.15;
+      padding-bottom: 1px;
+      margin-bottom: 1px;
     }}
     .gp-line, .ps-line {{
       text-align: center;
       font-size: {f('panchayat', f('meta', '12px'))};
       color: #000;
-      line-height: 1.2;
+      line-height: 1.08;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-top: 1px;
+      margin-top: 0.5px;
     }}
     .gp-line .meta-lbl, .ps-line .meta-lbl {{
       font-weight: 700;
@@ -181,7 +197,7 @@ def get_full_page_css(grid_css, font_scale):
       align-items: center;
       gap: 4px;
       font-size: {f('meta', '12.5px')};
-      margin-top: 2px;
+      margin-top: 1px;
     }}
     .meta-lbl {{
       font-weight: 700;
@@ -203,9 +219,13 @@ def get_full_page_css(grid_css, font_scale):
       display: flex;
       flex-direction: column;
       justify-content: space-evenly;
-      gap: 2.5px;
-      padding: 2px 0;
+      gap: 1.5px;
+      padding: 1px 0;
       min-width: 0;
+      /* Without this, a flex column child never shrinks below its own
+         content height, which silently stole room from .booth-line
+         whenever a long booth address needed 2-3 lines. */
+      min-height: 0;
     }}
     /* name + father's/husband's name sit to the left; the voter's own
        photo (from the WithPhoto roll PDF, matched by EPIC / serial number
@@ -243,7 +263,7 @@ def get_full_page_css(grid_css, font_scale):
     .voter-line {{
       font-size: {f('detail', '12.7px')};
       color: #111;
-      line-height: 1.25;
+      line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -252,20 +272,24 @@ def get_full_page_css(grid_css, font_scale):
       font-size: {f('name', '19px')};
       font-weight: 900;
       color: #000;
-      line-height: 1.15;
+      line-height: 1.05;
       letter-spacing: 0.2px;
-      margin-bottom: 1px;
+      margin-bottom: 0px;
     }}
     .voter-line strong {{ color: #000; font-weight: 900; }}
 
     .booth-line {{
       font-size: {f('booth', '12px')};
-      font-weight: 800;
-      line-height: 1.18;
+      font-weight: 900;
+      line-height: 1.1;
       border-top: 1.5px solid #111;
-      padding-top: 2px;
+      padding-top: 1px;
       color: #000;
       word-break: break-word;
+      /* Always show the full booth address from the roll, however many
+         lines it takes — never truncated, never clipped. */
+      flex-shrink: 0;
+      min-height: 0;
     }}
     .booth-label {{ font-weight: 900; color: #000; }}
     .booth-val {{ font-weight: 800; color: #000; }}
@@ -300,21 +324,32 @@ def get_full_page_css(grid_css, font_scale):
       background: #fbfbfd;
       padding: 2.5px 2px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: space-evenly;
+      justify-content: center;
       text-align: center;
       overflow: hidden;
+    }}
+    /* Fixed gap, centred as one block. Whether the party symbol is
+       present or absent, the spacing between every other label stays
+       identical — only the block's total height changes, and any
+       leftover height sits above/below the block, never inside it. */
+    .cand-stack {{
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: {f('c_gap', '3px')};
     }}
     .cand-post {{
       font-size: {f('c_post', '13px')};
       font-weight: 900;
       color: #b71c1c;
-      line-height: 1.12;
+      line-height: 1.1;
       width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      word-break: break-word;
+      overflow: visible;
     }}
     .cand-photo-frame {{
       width: {f('img_w', '64px')};

@@ -94,14 +94,14 @@ def get_grid_and_font(slips_per_page):
         },
         10: {
             "title": "13px", "panchayat": "11px", "meta": "11px", "serial": "12px",
-            "name": "15.5px", "detail": "11.5px", "booth": "10.8px",
+            "name": "15.5px", "detail": "11.5px", "booth": "11.5px",
             "c_post": "11px", "c_name": "13.5px", "c_party": "10.5px", "c_app": "9px",
             "img_w": "50px", "img_h": "54px", "sym_w": "42px", "sym_h": "42px", "avatar": "34px", "cut": "6.5px",
             "vphoto_w": "46px", "vphoto_h": "52px"
         },
         12: {
             "title": "11.5px", "panchayat": "9.8px", "meta": "10px", "serial": "11px",
-            "name": "13.5px", "detail": "10.2px", "booth": "9.5px",
+            "name": "13.5px", "detail": "10.2px", "booth": "7.0px",
             "c_post": "10px", "c_name": "12px", "c_party": "9.5px", "c_app": "8px",
             "img_w": "44px", "img_h": "48px", "sym_w": "36px", "sym_h": "36px", "avatar": "30px", "cut": "6px",
             "vphoto_w": "40px", "vphoto_h": "46px"
@@ -149,7 +149,21 @@ def save_base64_image_to_temp_file(data_uri, prefix):
             comma_idx = data_uri.find(",")
             if comma_idx != -1:
                 header = data_uri[:comma_idx]
-                raw_b64 = data_uri[comma_idx + 1:]
+                raw_b64 = data_uri[comma_idx + 1:].strip()
+                # A data URI can carry the "data:image/png;base64," HEADER
+                # with nothing after the comma (an empty payload) — e.g. if
+                # the browser starts building the string before a file is
+                # actually chosen, or a selection gets cleared. That string
+                # is non-empty and passes every check above, so without this
+                # guard we decode an empty payload (no error), write a
+                # ZERO-BYTE file, and hand back a file:// URL that looks
+                # perfectly valid — Chrome then renders its own broken-image
+                # icon for it. Treat an empty payload as "no image" instead.
+                if not raw_b64:
+                    return ""
+                image_bytes = base64.b64decode(raw_b64)
+                if not image_bytes:
+                    return ""
                 ext = ".jpg"
                 if "png" in header:
                     ext = ".png"
@@ -159,7 +173,7 @@ def save_base64_image_to_temp_file(data_uri, prefix):
                     ext = ".svg"
                 temp_path = os.path.join(tempfile.gettempdir(), f"{prefix}{ext}")
                 with open(temp_path, "wb") as f:
-                    f.write(base64.b64decode(raw_b64))
+                    f.write(image_bytes)
                 norm_path = os.path.abspath(temp_path).replace("\\", "/")
                 return f"file:///{quote(norm_path, safe=':/')}"
         except Exception as e:

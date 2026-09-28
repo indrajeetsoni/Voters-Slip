@@ -344,6 +344,15 @@ body {
   color: var(--text-muted);
 }
 
+/* Shared by ग्राम पंचायत (inside statPartsCount, above) and मतदान केंद्र
+   (the booth cell in partsTable, below) — same font-size/weight for both,
+   per request, and never truncated: white-space is left to wrap normally. */
+.field-highlight {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a237e;
+}
+
 /* Table */
 .data-table {
   width: 100%;

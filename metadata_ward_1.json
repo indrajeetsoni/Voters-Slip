@@ -1,0 +1,17 @@
+{
+  "ward": "1",
+  "gramPanchayat": "अतीतमड",
+  "panchayatSamiti": "नरबदखेडा",
+  "totalSerials": 448,
+  "totalDeleted": 61,
+  "totalActive": 387,
+  "parts": [
+    {
+      "part": "1",
+      "booth": "1 - राजकीय उ मायमिक विद्यालय, अतीतमंड (कमरा न.1) (नया भवन)",
+      "totalSerials": 448,
+      "deletedCount": 61,
+      "activeCount": 387
+    }
+  ]
+}

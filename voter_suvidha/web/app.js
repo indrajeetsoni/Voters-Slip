@@ -294,7 +294,9 @@ function renderSummary(data) {
   document.getElementById('statDeletedVoters').innerText = data.totalDeleted.toLocaleString('en-IN');
   document.getElementById('statTotalSerials').innerText = data.totalSerials.toLocaleString('en-IN');
   document.getElementById('statWardNum').innerText = data.ward || '1';
-  document.getElementById('statPartsCount').innerText = (data.gramPanchayat ? `${data.gramPanchayat} | ` : '') + `${data.parts.length} भाग शामिल`;
+  document.getElementById('statPartsCount').innerHTML =
+    (data.gramPanchayat ? `<span class="field-highlight">${data.gramPanchayat}</span> | ` : '') +
+    `${data.parts.length} भाग शामिल`;
 
   // Render Parts table
   const tbody = document.getElementById('partsTableBody');
@@ -304,8 +306,9 @@ function renderSummary(data) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="font-weight:700; text-align:center;">भाग ${p.part}</td>
-      <td style="font-weight:600; color:#1a237e; line-height:1.4;">
-        <span style="color:#e53935; margin-right:6px; font-size:1.1rem;">📍</span>${p.booth || 'उपलब्ध नहीं'}
+      <td style="line-height:1.4;">
+        <span style="color:#e53935; margin-right:6px; font-size:1.1rem;">📍</span>
+        <span class="field-highlight" style="white-space:normal; word-break:break-word;">${p.booth || 'उपलब्ध नहीं'}</span>
       </td>
       <td style="text-align:center;">${p.totalSerials}</td>
       <td style="text-align:center; font-weight:700; color:#2e7d32;">${p.activeCount}</td>

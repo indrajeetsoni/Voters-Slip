@@ -40,6 +40,7 @@ import pymupdf
 
 _EPIC_RE = re.compile(r'^[A-Z]{2,4}[A-Z0-9/]{4,20}$')
 _SERIAL_RE = re.compile(r'^\d{1,4}$')
+_MARK_RE = re.compile(r'^[ESR]$')
 
 # A voter photo on these rolls is roughly 42.5 x 56.9 pt. Give that some
 # headroom for other layouts while still rejecting the one big ward-map
@@ -49,11 +50,48 @@ _MIN_H, _MAX_H = 20, 120
 _ROW_Y_TOLERANCE = 20   # pt: how far above/below the image top a label can sit
 _MAX_LEFT_GAP = 160     # pt: how far left of the image a label can sit
 
+# A card's own EPIC sits immediately after its own serial number on the
+# same header line — this gap is deliberately much tighter than
+# _MAX_LEFT_GAP, which exists only to reach across to the photo and is
+# wide enough to span into a neighbouring card.
+_SAME_CARD_Y_TOLERANCE = 4   # pt
+_SAME_CARD_GAP = 60          # pt
+
+# A deletion mark sits directly against its serial number's left edge.
+_MARK_Y_TOLERANCE = 4    # pt
+_MARK_MAX_GAP = 16       # pt
+
+
+def _is_deleted(serial_word, words):
+    """True if an E/S/R mark sits immediately left of this serial, on the
+    same row — the whole card is deleted, and its photo (usually stamped
+    with a diagonal "DELETED" watermark) must never be attributed to
+    anyone, active or not."""
+    sx0, sy0 = serial_word[0], serial_word[1]
+    for w in words:
+        if not _MARK_RE.match(w[4].strip()):
+            continue
+        mx1, my0 = w[2], w[1]
+        if abs(my0 - sy0) < _MARK_Y_TOLERANCE and -2 < (sx0 - mx1) < _MARK_MAX_GAP:
+            return True
+    return False
+
 
 def _closest_labels(words, ix0, iy0):
-    """Return (epic_text_or_None, serial_text_or_None) best matching this image."""
-    best_epic, best_epic_gap = None, 1e9
-    best_serial, best_serial_gap = None, 1e9
+    """Return (epic_text_or_None, serial_text_or_None) best matching this
+    image — both drawn from the SAME card, and never from a deleted one.
+
+    Previously the nearest EPIC and nearest serial were found
+    independently, each just "closest word to the left, same row". Two
+    cards sitting close together could both have text inside that shared
+    search window, so an image could be filed under a NEIGHBOURING card's
+    EPIC even though its own serial was found correctly — e.g. an active
+    voter's EPIC being the nearest one in range for a deleted neighbour's
+    watermarked photo. Now the EPIC must sit right next to (same row,
+    small gap) the serial this image already matched, and a deleted
+    serial is rejected outright.
+    """
+    serial_candidates = []
     for w in words:
         wx0, wy0, wx1, wy1, text = w[0], w[1], w[2], w[3], w[4]
         if wx1 > ix0 + 5 or abs(wy0 - iy0) > _ROW_Y_TOLERANCE:
@@ -61,13 +99,30 @@ def _closest_labels(words, ix0, iy0):
         gap = ix0 - wx1
         if gap < 0 or gap > _MAX_LEFT_GAP:
             continue
-        if _EPIC_RE.match(text):
-            if gap < best_epic_gap:
-                best_epic_gap, best_epic = gap, text
-        elif _SERIAL_RE.match(text):
-            if gap < best_serial_gap:
-                best_serial_gap, best_serial = gap, text
-    return best_epic, best_serial
+        if _SERIAL_RE.match(text):
+            serial_candidates.append((gap, w))
+
+    serial_candidates.sort(key=lambda t: t[0])
+
+    for gap, sw in serial_candidates:
+        if _is_deleted(sw, words):
+            continue  # this card is deleted — its photo belongs to no one
+
+        sx0, sy0, sx1 = sw[0], sw[1], sw[2]
+        best_epic, best_epic_gap = None, 1e9
+        for w in words:
+            wx0, wy0, wx1, wy1, text = w[0], w[1], w[2], w[3], w[4]
+            if not _EPIC_RE.match(text):
+                continue
+            if abs(wy0 - sy0) > _SAME_CARD_Y_TOLERANCE:
+                continue
+            egap = wx0 - sx1
+            if 0 <= egap < _SAME_CARD_GAP and egap < best_epic_gap:
+                best_epic_gap, best_epic = egap, text
+
+        return best_epic, sw[4]
+
+    return None, None
 
 
 def _safe_filename(label, ext):
